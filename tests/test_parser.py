@@ -74,3 +74,37 @@ def test_graph_helpers():
     assert "C2" in cap_refs
     assert "C3" in cap_refs
     assert "C11" in cap_refs
+
+
+def test_parse_real_protel_netlist():
+    tel_path = Path(__file__).parent / "Netlist_Schematic_2026-10-17.tel"
+    if not tel_path.exists():
+        pytest.skip("Protel netlist file not found")
+
+    from src.easyeda.parser import parse_protel_netlist
+    graph = parse_protel_netlist(tel_path)
+
+    # Validate components
+    assert "U1" in graph.components
+    assert "X1" in graph.components
+    assert "X2" in graph.components
+    assert "R5" in graph.components
+    assert "R6" in graph.components
+
+    # Verify U1 has pins
+    u1 = graph.get_component("U1")
+    assert u1 is not None
+    assert len(u1.pins) > 0
+
+    # Verify nets
+    assert "GND" in graph.nets
+    assert "3V3" in graph.nets
+    assert "SCL" in graph.nets
+    assert "SDA" in graph.nets
+
+    # Verify SCL connects to U1 pin 42, R6 pin 1
+    scl_pins = graph.get_connected_pins("SCL")
+    scl_refs = {p.component_ref for p in scl_pins}
+    assert "U1" in scl_refs
+    assert "R6" in scl_refs
+
