@@ -1,7 +1,96 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Dict, List, Optional, Set
 import re
+
+
+class CheckStatus(str, Enum):
+    PASS = "PASS"
+    WARN = "WARN"
+    FAIL = "FAIL"
+
+
+
+@dataclass
+class CheckResult:
+    ref_des: str
+    component_type: str
+    status: CheckStatus
+    message: str
+    details: Dict[str, str] = field(default_factory=dict)
+
+    @property
+    def badge(self) -> str:
+        if self.status == CheckStatus.PASS:
+            return "🟢 PASS"
+        elif self.status == CheckStatus.WARN:
+            return "🟡 WARN"
+        else:
+            return "🔴 FAIL"
+
+
+def parse_resistance(val_str: str) -> Optional[float]:
+    """Parses standard resistance strings (e.g. 10k, 4k7, 100R, 220Ω, 1M) to ohms."""
+    if not val_str:
+        return None
+    cleaned = val_str.strip().replace("Ω", "").replace("ohm", "").replace("Ohm", "").strip()
+
+    # Match 4k7 style
+    m_mid = re.match(r"^(\d+)[kK](\d+)$", cleaned)
+    if m_mid:
+        return float(f"{m_mid.group(1)}.{m_mid.group(2)}") * 1e3
+
+    m_mid_r = re.match(r"^(\d+)[rR](\d+)$", cleaned)
+    if m_mid_r:
+        return float(f"{m_mid_r.group(1)}.{m_mid_r.group(2)}")
+
+    m_mid_m = re.match(r"^(\d+)[mM](\d+)$", cleaned)
+    if m_mid_m:
+        return float(f"{m_mid_m.group(1)}.{m_mid_m.group(2)}") * 1e6
+
+    # Match standard numbers with multiplier suffix
+    m = re.match(r"^([0-9.]+)\s*([kKmM]?[rR]?)$", cleaned)
+    if not m:
+        return None
+
+    try:
+        val = float(m.group(1))
+        unit = m.group(2).upper()
+        if "K" in unit:
+            return val * 1e3
+        elif "M" in unit:
+            return val * 1e6
+        else:
+            return val
+    except ValueError:
+        return None
+
+
+def parse_capacitance(val_str: str) -> Optional[float]:
+    """Parses standard capacitance strings (e.g. 100nF, 1uF, 22pF, 4.7uF) to Farads."""
+    if not val_str:
+        return None
+    cleaned = val_str.strip().replace("F", "").replace("f", "").strip()
+    m = re.match(r"^([0-9.]+)\s*([pnumµk]?)$", cleaned, re.IGNORECASE)
+    if not m:
+        return None
+    try:
+        val = float(m.group(1))
+        unit = m.group(2).lower()
+        if unit == "p":
+            return val * 1e-12
+        elif unit == "n":
+            return val * 1e-9
+        elif unit in ("u", "µ"):
+            return val * 1e-6
+        elif unit == "m":
+            return val * 1e-3
+        else:
+            return val
+    except ValueError:
+        return None
+
 
 @dataclass
 class Pin:
@@ -12,6 +101,7 @@ class Pin:
 
     def __repr__(self) -> str:
         return f"Pin({self.component_ref}.{self.number} [{self.name}] -> {self.net})"
+
 
 
 @dataclass

@@ -1,0 +1,22 @@
+# Track Plan: Phase 2 Discrete Component Checkers
+
+- [x] **Task 1: CheckResult Model & Common Helpers (`src/easyeda/models.py`)**
+  - Add `CheckStatus` enum (`PASS`, `WARN`, `FAIL`) and `CheckResult` dataclass (`ref_des`, `component_type`, `status`, `message`, `details`).
+  - Add resistance string parsing helper (e.g. `10k` -> `10000.0`, `1k` -> `1000.0`, `100R` -> `100.0`).
+- [x] **Task 2: Diode & LED Checker (`src/easyeda/checker_diodes.py`)**
+  - Reverse polarity check: Anode on input rail (`VIN`), Cathode on system rail.
+  - Flyback check: Cathode on positive rail across inductive load.
+  - LED polarity check: Anode towards power/drive, Cathode towards GND/sink.
+  - LED series resistor check: verify series resistor presence and resistance between $100\Omega$ and $4.7\text{k}\Omega$.
+- [x] **Task 3: Transistor & MOSFET Checker (`src/easyeda/checker_transistors.py`)**
+  - BJT Base saturation check: Ensure base has series resistor ($1\text{k}\Omega - 4.7\text{k}\Omega$) if driven by MCU/logic GPIO.
+  - BJT Emitter orientation: NPN emitter to GND; PNP emitter to high rail.
+  - MOSFET Gate bias check: Verify N-ch has gate pull-down to GND (or P-ch pull-up to power rail) to prevent floating gate.
+- [x] **Task 4: Unit Test Suite (`tests/test_discrete_checkers.py`)**
+  - Assert `D1` is `PASS`.
+  - Assert `D2` is `FAIL` (backwards flyback).
+  - Assert `LED1` is `PASS`.
+  - Assert `LED2` is `FAIL` (missing series resistor).
+  - Assert `Q1` is `PASS`.
+  - Assert `Q2` is `WARN` (missing base resistor for saturation).
+  - Tested on real netlist `Netlist_Schematic_2026-10-17.tel`: Q1 and Q2 pass saturation checks with R2 (1k) and R4 (220R).
