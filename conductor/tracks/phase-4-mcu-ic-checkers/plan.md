@@ -1,0 +1,21 @@
+# Track Plan: Phase 4 IC, I2C & Microcontroller Checker Engine
+
+- [x] **Task 1: IC Decoupling & I2C Checker (`src/easyeda/checker_ics.py`)**
+  - Implement decoupling check comparing capacitors on power nets against `profile.power_pins`.
+  - Implement I2C address resolution: Check strapping pin connections (`GND`, `V+`, `SDA`, `SCL`) against `profile.i2c_addresses` and return the 7-bit address.
+  - Implement I2C pull-up resistor check on `SDA` and `SCL` ($2.2\text{k}\Omega - 10\text{k}\Omega$).
+- [x] **Task 2: Microcontroller Checker (`src/easyeda/checker_mcu.py`)**
+  - Verify all MCU power pins (`VDD`, `VDDA`, `VSS`) connected and decoupled per datasheet.
+  - Verify HSE crystal load capacitors ($15\text{pF} - 25\text{pF}$) on `OSC_IN`/`OSC_OUT`.
+  - Verify LSE (32.768kHz RTC) crystal and load capacitors ($6\text{pF} - 12\text{pF}$) if RTC pins are connected.
+  - Verify `NRST` pull-up and `BOOT0` pull-down.
+- [x] **Task 3: Bus Crossover & Pin Assignment Checker (`src/easyeda/checker_buses.py`)**
+  - Verify UART crossover: MCU `TX` $\to$ Device `RX`, MCU `RX` $\leftarrow$ Device `TX`.
+  - Verify CAN bus connection: MCU `CAN_TX` $\to$ Transceiver `TXD`, MCU `CAN_RX` $\leftarrow$ Transceiver `RXD` (flag swapped pins).
+  - Verify SPI connections: `MOSI` $\to$ `MOSI`/`SDI`, `MISO` $\leftarrow$ `MISO`/`SDO`.
+- [x] **Task 4: Unit Test Suite (`tests/test_mcu_checker.py`)**
+  - Assert TMP102 decoupling is PASS and address resolves to `0x48`.
+  - Assert STM32 power pins and dual crystals (8MHz + 32.768kHz) PASS.
+  - Assert UART1 (STM32 to CH340G) passes crossover check.
+  - Assert CAN1 (STM32 to TJA1050 U5) fails with swapped RX/TX.
+  - Validated on real project files (`Netlist_Schematic_2026-10-17.tel` + `BOM_RemoteNode_Schematic_2026-10-17.xlsx`).
