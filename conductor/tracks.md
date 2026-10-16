@@ -1,7 +1,9 @@
 # Conductor Tracks
 
 ## Active Tracks
-*(No active tracks)*
+| Track | Description | Status | Issue | Branch |
+| :--- | :--- | :--- | :--- | :--- |
+| [phase-4-mcu-ic-checkers](./tracks/phase-4-mcu-ic-checkers/) | Phase 4: IC, I2C & Microcontroller Checker Engine | In Progress | [#7](https://github.com/toogooda/easyeda-with-gemini/issues/7) | `feature/phase-4-mcu-ic-checkers` |
 
 ## Archived Tracks
 | Track | Description | Status | Issue | PR |
