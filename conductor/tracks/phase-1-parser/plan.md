@@ -1,0 +1,25 @@
+# Track Plan: Phase 1 Test Bench Schematic & Graph Parser
+
+- [x] **Task 1: Test Bench Schematic Fixture**
+  - Create `tests/fixtures/test_schematic.json` modeling our sample hardware:
+    - D1 (SS34, Schottky, properly oriented on VIN)
+    - D2 (1N4148, reverse-biased across relay coil)
+    - LED1 (Red LED with 1k resistor on 3.3V)
+    - LED2 (Green LED with no resistor on MCU GPIO)
+    - Q1 (2N7002 N-Ch MOSFET with 10k gate pull-down and 100R series)
+    - Q2 (S8050 NPN BJT with base tied directly to MCU GPIO)
+    - U1 (STM32F103C8T6 MCU with power, decoupling, 8MHz HSE crystal, 32.768kHz LSE crystal, UART, and I2C pins)
+    - U2 (TMP102 I2C sensor with ADD0 tied to GND, I2C pull-ups on SDA/SCL)
+    - U4 (CH340G USB-to-UART with TXD/RXD crossover)
+    - U5 (TJA1050 CAN transceiver with swapped TX/RX)
+- [x] **Task 2: Core Data Models (`src/easyeda/models.py`)**
+  - Implement `Pin`, `Component`, `Net`, and `SchematicGraph` with helper search methods:
+    - `get_component(ref_des)`
+    - `get_net(net_name)`
+    - `get_connected_pins(net_name)`
+    - `find_resistor_between(net_a, net_b)`
+    - `find_capacitors_between(net_a, net_b)`
+- [x] **Task 3: Parser Implementation (`src/easyeda/parser.py`)**
+  - Implement parsing logic to populate `SchematicGraph` and automatic component type inference.
+- [x] **Task 4: Unit Test Suite (`tests/test_parser.py`)**
+  - Verify all components, nets, and pins are loaded and correctly traversable.
