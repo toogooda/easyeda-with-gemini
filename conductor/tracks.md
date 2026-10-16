@@ -1,7 +1,9 @@
 # Conductor Tracks
 
 ## Active Tracks
-*(No active tracks)*
+| Track | Description | Status | Issue | Branch |
+| :--- | :--- | :--- | :--- | :--- |
+| [phase-5-mcp-skill](./tracks/phase-5-mcp-skill/) | Phase 5: MCP Server, Live Extension & Antigravity Skill | In Progress | [#9](https://github.com/toogooda/easyeda-with-gemini/issues/9) | `feature/phase-5-mcp-skill` |
 
 ## Archived Tracks
 | Track | Description | Status | Issue | PR |
