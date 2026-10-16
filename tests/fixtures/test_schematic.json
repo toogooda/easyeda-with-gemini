@@ -1,0 +1,341 @@
+{
+  "project_name": "TestBench_Board",
+  "version": "1.0",
+  "components": [
+    {
+      "ref_des": "D1",
+      "value": "SS34",
+      "package": "SMA",
+      "lcsc_id": "C8678",
+      "datasheet": "https://datasheet.lcsc.com/lcsc/1811151445_PANJIT-SS34_C8678.pdf",
+      "type": "DIODE",
+      "pins": [
+        { "number": "1", "name": "A", "net": "VIN" },
+        { "number": "2", "name": "K", "net": "VIN_SYS" }
+      ]
+    },
+    {
+      "ref_des": "D2",
+      "value": "1N4148",
+      "package": "SOD-123",
+      "lcsc_id": "C81598",
+      "datasheet": "https://datasheet.lcsc.com/lcsc/1811082011_Shikues-1N4148W_C81598.pdf",
+      "type": "DIODE",
+      "pins": [
+        { "number": "1", "name": "A", "net": "+12V" },
+        { "number": "2", "name": "K", "net": "RELAY_SW" }
+      ]
+    },
+    {
+      "ref_des": "LED1",
+      "value": "0805 Red",
+      "package": "0805",
+      "lcsc_id": "C84256",
+      "datasheet": "https://datasheet.lcsc.com/lcsc/1811141151_Everlight-Elec-19-21-R6C-FP1Q2L-3T_C84256.pdf",
+      "type": "LED",
+      "pins": [
+        { "number": "1", "name": "A", "net": "+3V3" },
+        { "number": "2", "name": "K", "net": "NET_LED1_K" }
+      ]
+    },
+    {
+      "ref_des": "R1",
+      "value": "1k",
+      "package": "0805",
+      "lcsc_id": "C17513",
+      "type": "RESISTOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "NET_LED1_K" },
+        { "number": "2", "name": "2", "net": "MCU_LED1" }
+      ]
+    },
+    {
+      "ref_des": "LED2",
+      "value": "0805 Green",
+      "package": "0805",
+      "lcsc_id": "C72043",
+      "type": "LED",
+      "pins": [
+        { "number": "1", "name": "A", "net": "MCU_LED2" },
+        { "number": "2", "name": "K", "net": "GND" }
+      ]
+    },
+    {
+      "ref_des": "Q1",
+      "value": "2N7002",
+      "package": "SOT-23",
+      "lcsc_id": "C8502",
+      "datasheet": "https://datasheet.lcsc.com/lcsc/1809050017_JCET-2N7002_C8502.pdf",
+      "type": "MOSFET_N",
+      "pins": [
+        { "number": "1", "name": "G", "net": "NET_Q1_G" },
+        { "number": "2", "name": "S", "net": "GND" },
+        { "number": "3", "name": "D", "net": "HEATER_NEG" }
+      ]
+    },
+    {
+      "ref_des": "R2",
+      "value": "10k",
+      "package": "0805",
+      "lcsc_id": "C17414",
+      "type": "RESISTOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "NET_Q1_G" },
+        { "number": "2", "name": "2", "net": "GND" }
+      ]
+    },
+    {
+      "ref_des": "R3",
+      "value": "100R",
+      "package": "0805",
+      "lcsc_id": "C17407",
+      "type": "RESISTOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "NET_Q1_G" },
+        { "number": "2", "name": "2", "net": "MCU_PWM" }
+      ]
+    },
+    {
+      "ref_des": "Q2",
+      "value": "S8050",
+      "package": "SOT-23",
+      "lcsc_id": "C2146",
+      "type": "BJT_NPN",
+      "pins": [
+        { "number": "1", "name": "B", "net": "MCU_BUZZER" },
+        { "number": "2", "name": "E", "net": "GND" },
+        { "number": "3", "name": "C", "net": "BUZZER_NEG" }
+      ]
+    },
+    {
+      "ref_des": "U1",
+      "value": "STM32F103C8T6",
+      "package": "LQFP-48",
+      "lcsc_id": "C8734",
+      "datasheet": "https://datasheet.lcsc.com/lcsc/1811151441_STMicroelectronics-STM32F103C8T6_C8734.pdf",
+      "type": "MCU",
+      "pins": [
+        { "number": "3", "name": "PC14-OSC32_IN", "net": "NET_LSE_IN" },
+        { "number": "4", "name": "PC15-OSC32_OUT", "net": "NET_LSE_OUT" },
+        { "number": "5", "name": "OSC_IN", "net": "NET_HSE_IN" },
+        { "number": "6", "name": "OSC_OUT", "net": "NET_HSE_OUT" },
+        { "number": "7", "name": "NRST", "net": "NRST" },
+        { "number": "8", "name": "VSSA", "net": "GND" },
+        { "number": "9", "name": "VDDA", "net": "VDDA" },
+        { "number": "23", "name": "VSS_1", "net": "GND" },
+        { "number": "24", "name": "VDD_1", "net": "+3V3" },
+        { "number": "30", "name": "PA9", "net": "UART1_TX" },
+        { "number": "31", "name": "PA10", "net": "UART1_RX" },
+        { "number": "32", "name": "PA11", "net": "CAN_RX" },
+        { "number": "33", "name": "PA12", "net": "CAN_TX" },
+        { "number": "35", "name": "VSS_2", "net": "GND" },
+        { "number": "36", "name": "VDD_2", "net": "+3V3" },
+        { "number": "42", "name": "PB6", "net": "I2C_SCL" },
+        { "number": "43", "name": "PB7", "net": "I2C_SDA" },
+        { "number": "44", "name": "BOOT0", "net": "BOOT0" },
+        { "number": "47", "name": "VSS_3", "net": "GND" },
+        { "number": "48", "name": "VDD_3", "net": "+3V3" }
+      ]
+    },
+    {
+      "ref_des": "C1",
+      "value": "100nF",
+      "package": "0805",
+      "lcsc_id": "C49678",
+      "type": "CAPACITOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "+3V3" },
+        { "number": "2", "name": "2", "net": "GND" }
+      ]
+    },
+    {
+      "ref_des": "C2",
+      "value": "100nF",
+      "package": "0805",
+      "lcsc_id": "C49678",
+      "type": "CAPACITOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "+3V3" },
+        { "number": "2", "name": "2", "net": "GND" }
+      ]
+    },
+    {
+      "ref_des": "C3",
+      "value": "100nF",
+      "package": "0805",
+      "lcsc_id": "C49678",
+      "type": "CAPACITOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "+3V3" },
+        { "number": "2", "name": "2", "net": "GND" }
+      ]
+    },
+    {
+      "ref_des": "C4",
+      "value": "10nF",
+      "package": "0805",
+      "lcsc_id": "C1710",
+      "type": "CAPACITOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "VDDA" },
+        { "number": "2", "name": "2", "net": "GND" }
+      ]
+    },
+    {
+      "ref_des": "C5",
+      "value": "1uF",
+      "package": "0805",
+      "lcsc_id": "C28323",
+      "type": "CAPACITOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "VDDA" },
+        { "number": "2", "name": "2", "net": "GND" }
+      ]
+    },
+    {
+      "ref_des": "Y1",
+      "value": "8MHz",
+      "package": "HC-49S",
+      "lcsc_id": "C12674",
+      "type": "CRYSTAL",
+      "pins": [
+        { "number": "1", "name": "1", "net": "NET_HSE_IN" },
+        { "number": "2", "name": "2", "net": "NET_HSE_OUT" }
+      ]
+    },
+    {
+      "ref_des": "C6",
+      "value": "22pF",
+      "package": "0805",
+      "lcsc_id": "C1804",
+      "type": "CAPACITOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "NET_HSE_IN" },
+        { "number": "2", "name": "2", "net": "GND" }
+      ]
+    },
+    {
+      "ref_des": "C7",
+      "value": "22pF",
+      "package": "0805",
+      "lcsc_id": "C1804",
+      "type": "CAPACITOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "NET_HSE_OUT" },
+        { "number": "2", "name": "2", "net": "GND" }
+      ]
+    },
+    {
+      "ref_des": "Y2",
+      "value": "32.768kHz",
+      "package": "3215",
+      "lcsc_id": "C32346",
+      "type": "CRYSTAL",
+      "pins": [
+        { "number": "1", "name": "1", "net": "NET_LSE_IN" },
+        { "number": "2", "name": "2", "net": "NET_LSE_OUT" }
+      ]
+    },
+    {
+      "ref_des": "C8",
+      "value": "10pF",
+      "package": "0805",
+      "lcsc_id": "C1798",
+      "type": "CAPACITOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "NET_LSE_IN" },
+        { "number": "2", "name": "2", "net": "GND" }
+      ]
+    },
+    {
+      "ref_des": "C9",
+      "value": "10pF",
+      "package": "0805",
+      "lcsc_id": "C1798",
+      "type": "CAPACITOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "NET_LSE_OUT" },
+        { "number": "2", "name": "2", "net": "GND" }
+      ]
+    },
+    {
+      "ref_des": "U2",
+      "value": "TMP102AIDRLR",
+      "package": "SOT-563",
+      "lcsc_id": "C62973",
+      "datasheet": "https://datasheet.lcsc.com/lcsc/1811151448_Texas-Instruments-TMP102AIDRLR_C62973.pdf",
+      "type": "IC_I2C",
+      "pins": [
+        { "number": "1", "name": "SCL", "net": "I2C_SCL" },
+        { "number": "2", "name": "GND", "net": "GND" },
+        { "number": "3", "name": "ALERT", "net": "TEMP_ALERT" },
+        { "number": "4", "name": "ADD0", "net": "GND" },
+        { "number": "5", "name": "V+", "net": "+3V3" },
+        { "number": "6", "name": "SDA", "net": "I2C_SDA" }
+      ]
+    },
+    {
+      "ref_des": "C11",
+      "value": "100nF",
+      "package": "0805",
+      "lcsc_id": "C49678",
+      "type": "CAPACITOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "+3V3" },
+        { "number": "2", "name": "2", "net": "GND" }
+      ]
+    },
+    {
+      "ref_des": "R6",
+      "value": "4.7k",
+      "package": "0805",
+      "lcsc_id": "C25900",
+      "type": "RESISTOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "I2C_SCL" },
+        { "number": "2", "name": "2", "net": "+3V3" }
+      ]
+    },
+    {
+      "ref_des": "R7",
+      "value": "4.7k",
+      "package": "0805",
+      "lcsc_id": "C25900",
+      "type": "RESISTOR",
+      "pins": [
+        { "number": "1", "name": "1", "net": "I2C_SDA" },
+        { "number": "2", "name": "2", "net": "+3V3" }
+      ]
+    },
+    {
+      "ref_des": "U4",
+      "value": "CH340G",
+      "package": "SOP-16",
+      "lcsc_id": "C14267",
+      "datasheet": "https://datasheet.lcsc.com/lcsc/1912111437_WCH-Jiangsu-Qin-Heng-CH340G_C14267.pdf",
+      "type": "IC",
+      "pins": [
+        { "number": "2", "name": "TXD", "net": "UART1_RX" },
+        { "number": "3", "name": "RXD", "net": "UART1_TX" },
+        { "number": "8", "name": "GND", "net": "GND" },
+        { "number": "16", "name": "VCC", "net": "+5V" }
+      ]
+    },
+    {
+      "ref_des": "U5",
+      "value": "TJA1050",
+      "package": "SOP-8",
+      "lcsc_id": "C35650",
+      "datasheet": "https://datasheet.lcsc.com/lcsc/1811141416_NXP-Semicon-TJA1050T-CM-118_C35650.pdf",
+      "type": "IC",
+      "pins": [
+        { "number": "1", "name": "TXD", "net": "CAN_RX" },
+        { "number": "2", "name": "GND", "net": "GND" },
+        { "number": "3", "name": "VCC", "net": "+5V" },
+        { "number": "4", "name": "RXD", "net": "CAN_TX" },
+        { "number": "6", "name": "CANL", "net": "CANL" },
+        { "number": "7", "name": "CANH", "net": "CANH" }
+      ]
+    }
+  ]
+}
