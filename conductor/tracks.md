@@ -1,7 +1,9 @@
 # Conductor Tracks
 
 ## Active Tracks
-*(No active tracks)*
+| Track | Description | Status | Issue | Branch |
+| :--- | :--- | :--- | :--- | :--- |
+| [phase-3-jit-cache](./tracks/phase-3-jit-cache/) | Phase 3: JIT Part Cache & Datasheet Extractor | In Progress | [#5](https://github.com/toogooda/easyeda-with-gemini/issues/5) | `feature/phase-3-jit-cache` |
 
 ## Archived Tracks
 | Track | Description | Status | Issue | PR |
