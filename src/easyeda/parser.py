@@ -165,8 +165,9 @@ def parse_protel_netlist(source: Union[str, Path]) -> SchematicGraph:
             continue
         net_part, pins_part = record.split(";", 1)
         net_name = net_part.strip().strip("'\"").strip(",")
-        if not net_name or net_name.startswith("$"):
+        if not net_name or net_name.upper() in ("$NETS", "$PACKAGES", "$END", "$SCHEDULE", "$A_PROPERTIES"):
             continue
+
 
         pin_tokens = re.findall(r"([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)", pins_part)
         for ref, pin_num in pin_tokens:
