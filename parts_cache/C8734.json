@@ -1,0 +1,64 @@
+{
+  "lcsc_part": "C8734",
+  "part_number": "STM32F103C8T6",
+  "part_type": "MCU",
+  "voltage_limits": { "min": 2.0, "max": 3.6, "typical": 3.3 },
+  "power_pins": [
+    { "pin": "9", "name": "VDDA", "rail": "3.3V", "decoupling": "10nF + 1uF", "notes": "Analog power" },
+    { "pin": "24", "name": "VDD_1", "rail": "3.3V", "decoupling": "100nF" },
+    { "pin": "36", "name": "VDD_2", "rail": "3.3V", "decoupling": "100nF" },
+    { "pin": "48", "name": "VDD_3", "rail": "3.3V", "decoupling": "100nF" }
+  ],
+  "ground_pins": ["8", "23", "35", "47"],
+  "crystals": {
+    "hse": {
+      "in": "5",
+      "out": "6",
+      "in_name": "OSC_IN",
+      "out_name": "OSC_OUT",
+      "recommended_caps": "15pF-25pF",
+      "required": false
+    },
+    "lse_rtc": {
+      "in": "3",
+      "out": "4",
+      "in_name": "PC14-OSC32_IN",
+      "out_name": "PC15-OSC32_OUT",
+      "recommended_caps": "6pF-12pF",
+      "required": false
+    }
+  },
+  "reset_pin": {
+    "pin": "7",
+    "name": "NRST",
+    "active": "LOW",
+    "recommended": "10k pull-up + 100nF"
+  },
+  "boot_strapping": [
+    { "pin": "44", "name": "BOOT0", "normal_run_state": "GND", "recommendation": "10k pull-down" }
+  ],
+  "peripherals": {
+    "USART1": {
+      "tx": ["PA9", "PB6", "30"],
+      "rx": ["PA10", "PB7", "31"]
+    },
+    "USART2": {
+      "tx": ["PA2", "12"],
+      "rx": ["PA3", "13"]
+    },
+    "I2C1": {
+      "scl": ["PB6", "PB8", "42"],
+      "sda": ["PB7", "PB9", "43"],
+      "pullup_required": true
+    },
+    "SPI1": {
+      "sck": ["PA5", "PB3", "15"],
+      "miso": ["PA6", "PB4", "16"],
+      "mosi": ["PA7", "PB5", "17"]
+    },
+    "CAN1": {
+      "rx": ["PA11", "PB8", "32"],
+      "tx": ["PA12", "PB9", "33"]
+    }
+  }
+}

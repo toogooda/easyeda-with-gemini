@@ -1,0 +1,24 @@
+{
+  "lcsc_part": "C62973",
+  "part_number": "TMP102AIDRLR",
+  "part_type": "I2C_SENSOR",
+  "voltage_limits": { "min": 1.4, "max": 3.6, "typical": 3.3 },
+  "power_pins": [
+    { "pin": "5", "name": "V+", "rail": "3.3V", "decoupling": "100nF" }
+  ],
+  "ground_pins": ["2"],
+  "i2c_addresses": {
+    "ADD0=GND": "0x48",
+    "ADD0=V+": "0x49",
+    "ADD0=SDA": "0x4A",
+    "ADD0=SCL": "0x4B"
+  },
+  "peripherals": {
+    "I2C": {
+      "sda": ["6", "SDA"],
+      "scl": ["1", "SCL"],
+      "alert": ["3", "ALERT"],
+      "pullup_required": true
+    }
+  }
+}
