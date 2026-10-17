@@ -26,8 +26,18 @@ class EasyEDALiveHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length).decode("utf-8")
             try:
-                data = json.loads(post_data)
-                graph = parse_schematic_json(data)
+                stripped = post_data.strip()
+                if stripped.startswith("{") or stripped.startswith("[{"):
+                    data = json.loads(stripped)
+                    if isinstance(data, dict) and "netlist_text" in data:
+                        graph = parse_protel_netlist(data["netlist_text"])
+                        if "project_name" in data:
+                            graph.project_name = data["project_name"]
+                    else:
+                        graph = parse_schematic_json(data)
+                else:
+                    graph = parse_protel_netlist(stripped)
+
                 pm = PartsManager()
                 report = generate_schematic_report(graph, pm)
 

@@ -91,3 +91,35 @@ def test_live_extension_http_receiver():
     assert "# Schematic Review Report: TestBench_Board" in live_report
 
     server.shutdown()
+
+
+def test_live_extension_netlist_text_payload():
+    if not REAL_TEL_PATH.exists():
+        pytest.skip("Real tel file not found")
+
+    server = start_live_receiver(port=8767)
+
+    with open(REAL_TEL_PATH, "r", encoding="utf-8") as f:
+        tel_text = f.read()
+
+    payload_bytes = json.dumps({
+        "project_name": "Live_RemoteNode",
+        "netlist_text": tel_text
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "http://127.0.0.1:8767/review",
+        data=payload_bytes,
+        headers={"Content-Type": "application/json"}
+    )
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        assert resp.status == 200
+        res_data = json.loads(resp.read().decode("utf-8"))
+        assert res_data["status"] == "success"
+        assert res_data["components_count"] > 0
+
+    live_report = audit_schematic("live")
+    assert "# Schematic Review Report: Live_RemoteNode" in live_report
+
+    server.shutdown()
+

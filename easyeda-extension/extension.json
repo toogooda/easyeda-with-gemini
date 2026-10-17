@@ -1,0 +1,24 @@
+{
+  "name": "easyeda-with-gemini",
+  "uuid": "7a3e8c14-5b29-4d81-9b76-f38b4c91a021",
+  "displayName": "Antigravity Reviewer",
+  "description": "Live AI Schematic Reviewer connecting EasyEDA Pro to Antigravity and Gemini",
+  "version": "1.0.0",
+  "publisher": "Antigravity",
+  "entry": "index.js",
+  "headerMenus": {
+    "sch": [
+      {
+        "id": "antigravity_tools",
+        "title": "Antigravity",
+        "menuItems": [
+          {
+            "id": "audit_with_antigravity",
+            "title": "Audit Schematic with Antigravity",
+            "registerFn": "auditWithAntigravity"
+          }
+        ]
+      }
+    ]
+  }
+}

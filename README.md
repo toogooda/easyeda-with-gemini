@@ -26,14 +26,16 @@ The system consists of two parts:
 
 ### 1. Install the EasyEDA Pro Extension
 1. Open **EasyEDA Pro** (Desktop client or Web version).
-2. In the top menu, go to **Advanced** $\to$ **Extensions** $\to$ **Extensions Management**.
-3. Click **Load Extension** (or "Load Unpacked Extension").
-4. In the folder picker, select:
+2. In the top menu, go to **Advanced** $\to$ **Extension Manager** (or **Settings** $\to$ **Extensions**).
+3. Click the **Import** button.
+4. Select the pre-packaged extension file from the repository:
    ```
-   C:\Projects\easyeda-with-gemini\easyeda-extension
+   C:\Projects\easyeda-with-gemini\easyeda-extension\easyeda-with-gemini.eext
    ```
-5. `easyeda-with-gemini` will appear in your installed extensions list. A new menu option is registered under:
-   **Schematic** $\to$ **Tools** $\to$ **Audit with Antigravity**.
+   *(Alternatively, `easyeda-with-gemini.zip` is also provided in the same folder).*
+5. In the **Installed** tab of Extension Manager, ensure **Antigravity Reviewer** is toggled to **Enabled**.
+6. Open any schematic: the new menu item is available in the top bar under:
+   **Antigravity** $\to$ **Audit Schematic with Antigravity**.
 
 ### 2. Register the Antigravity Skill
 Copy the skill folder to your personal Antigravity skills directory:
