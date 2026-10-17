@@ -86,7 +86,9 @@ def parse_bom(file_path: Union[str, Path]) -> Dict[str, Dict[str, str]]:
     des_col = find_col("designator")
     lcsc_col = find_col("supplier part", "lcsc", "part number", "supplier")
     sheet_col = find_col("datasheet", "link", "url")
-    val_col = find_col("value", "comment")
+    val_col = find_col("value")
+    comment_col = find_col("comment")
+    mpn_col = find_col("manufacturer part", "device", "name")
     fp_col = find_col("footprint", "package")
 
     results: Dict[str, Dict[str, str]] = {}
@@ -102,6 +104,10 @@ def parse_bom(file_path: Union[str, Path]) -> Dict[str, Dict[str, str]]:
         lcsc_id = row[lcsc_col].strip() if lcsc_col is not None and lcsc_col < len(row) else ""
         datasheet_url = row[sheet_col].strip() if sheet_col is not None and sheet_col < len(row) else ""
         value = row[val_col].strip() if val_col is not None and val_col < len(row) else ""
+        if not value and comment_col is not None and comment_col < len(row):
+            value = row[comment_col].strip()
+        if not value and mpn_col is not None and mpn_col < len(row):
+            value = row[mpn_col].strip()
         footprint = row[fp_col].strip() if fp_col is not None and fp_col < len(row) else ""
 
         # Handle multiple comma/space-separated designators in one row (e.g. C1,C2,C3)
@@ -127,10 +133,11 @@ def merge_bom_into_graph(graph: SchematicGraph, bom_data: Dict[str, Dict[str, st
                 comp.lcsc_id = meta["lcsc_id"]
             if meta.get("datasheet"):
                 comp.datasheet = meta["datasheet"]
-            if not comp.value and meta.get("value"):
+            if (not comp.value or comp.value == "{Value}") and meta.get("value"):
                 comp.value = meta["value"]
-            if not comp.package and meta.get("footprint"):
-                comp.package = meta["footprint"]
+            fp = meta.get("footprint", "")
+            if not comp.package and fp and fp != "[object Object]":
+                comp.package = fp
 
 
 def download_datasheet(url: str, lcsc_id: str, dest_dir: Union[str, Path] = "datasheets") -> Optional[Path]:

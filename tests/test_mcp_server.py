@@ -162,3 +162,50 @@ def test_live_extension_chunked_encoding():
     server.shutdown()
 
 
+def test_antigravity_initiated_on_demand_pull():
+    import threading
+    import time
+    from src.easyeda.server import request_live_pull
+
+    if not REAL_TEL_PATH.exists():
+        pytest.skip("Real tel file not found")
+
+    server = start_live_receiver(port=8769)
+    with open(REAL_TEL_PATH, "r", encoding="utf-8") as f:
+        tel_text = f.read()
+
+    stop_client = threading.Event()
+
+    def simulated_easyeda_extension():
+        while not stop_client.is_set():
+            try:
+                with urllib.request.urlopen("http://127.0.0.1:8769/poll?client=localhost", timeout=2) as r:
+                    data = json.loads(r.read().decode("utf-8"))
+                    if data.get("command") == "pull_schematic":
+                        payload = json.dumps({
+                            "project_name": "OnDemand_Pulled_Board",
+                            "netlist_text": tel_text
+                        }).encode("utf-8")
+                        req = urllib.request.Request(
+                            "http://127.0.0.1:8769/review?client=localhost",
+                            data=payload,
+                            headers={"Content-Type": "application/json"}
+                        )
+                        urllib.request.urlopen(req, timeout=2).read()
+            except Exception:
+                pass
+            time.sleep(0.1)
+
+    t = threading.Thread(target=simulated_easyeda_extension, daemon=True)
+    t.start()
+    time.sleep(0.25)  # allow first poll heartbeat
+
+    report = request_live_pull(timeout=3.0, port=8769)
+    stop_client.set()
+    server.shutdown()
+
+    assert report is not None
+    assert "# Schematic Review Report: OnDemand_Pulled_Board" in report
+
+
+

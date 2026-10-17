@@ -26,6 +26,9 @@ var edaEsbuildExportName = (() => {
   });
 
   const ENDPOINT_URL = "http://127.0.0.1:8765/review?client=localhost";
+  const POLL_URL = "http://127.0.0.1:8765/poll?client=localhost";
+  const TIMER_ID = "antigravity_mcp_poll_timer";
+  let isPolling = false;
 
   function showDialog(message, title = "Antigravity Reviewer") {
     try {
@@ -39,19 +42,12 @@ var edaEsbuildExportName = (() => {
     }
   }
 
-  function activate(status, arg) {
-    console.log("Antigravity Reviewer extension activated.");
-  }
-
-  function deactivate() {
-    console.log("Antigravity Reviewer extension deactivated.");
-  }
-
-  function about() {
-    showDialog(
-      "Antigravity Schematic Reviewer v1.0.0\nConnects EasyEDA Pro to Antigravity & Gemini via MCP (http://127.0.0.1:8765/review).",
-      "About Antigravity Reviewer"
-    );
+  function showToast(message, type = "info") {
+    try {
+      if (typeof eda !== "undefined" && eda.sys_Message && typeof eda.sys_Message.showToastMessage === "function") {
+        eda.sys_Message.showToastMessage(message, type);
+      }
+    } catch (e) {}
   }
 
   async function extractComponentMetadata() {
@@ -70,25 +66,23 @@ var edaEsbuildExportName = (() => {
             bomMeta[des] = {
               ref_des: des,
               value: String(val || ""),
-              footprint: String(pkg || ""),
+              footprint: typeof pkg === "string" ? pkg : "",
               lcsc_id: String(lcsc || ""),
               datasheet: String(sheet || "")
             };
           }
         }
-      } catch (e) {
-        console.warn("Component metadata extraction warning:", e);
-      }
+      } catch (e) {}
     }
     return bomMeta;
   }
 
-  async function auditWithAntigravity() {
+  async function captureAndSendSchematic(silent = true) {
     try {
       let netlistText = null;
       let bomCsv = null;
 
-      // 1. Try SCH_ManufactureData.getNetlistFile ('Allegro' gives .tel format, fallback to 'Protel2')
+      // 1. Query live netlist from active schematic
       if (typeof eda !== "undefined" && eda.sch_ManufactureData && typeof eda.sch_ManufactureData.getNetlistFile === "function") {
         for (const fmt of ["Allegro", "Protel2"]) {
           try {
@@ -103,9 +97,7 @@ var edaEsbuildExportName = (() => {
                 break;
               }
             }
-          } catch (err) {
-            console.warn("getNetlistFile (" + fmt + ") fallback:", err);
-          }
+          } catch (err) {}
         }
       }
 
@@ -121,13 +113,11 @@ var edaEsbuildExportName = (() => {
               netlistText = await res.text();
               if (netlistText && netlistText.length > 10) break;
             }
-          } catch (err) {
-            console.warn("getNetlist (" + fmt + ") fallback:", err);
-          }
+          } catch (err) {}
         }
       }
 
-      // 3. Try SCH_ManufactureData.getBomFile ('csv') to get LCSC IDs and Datasheet URLs
+      // 3. Query live BOM metadata (LCSC IDs, MPNs, Datasheet URLs)
       if (typeof eda !== "undefined" && eda.sch_ManufactureData && typeof eda.sch_ManufactureData.getBomFile === "function") {
         try {
           const bomFile = await eda.sch_ManufactureData.getBomFile("bom", "csv");
@@ -138,9 +128,7 @@ var edaEsbuildExportName = (() => {
               bomCsv = bomFile;
             }
           }
-        } catch (err) {
-          console.warn("getBomFile fallback:", err);
-        }
+        } catch (err) {}
       }
 
       const bomMeta = await extractComponentMetadata();
@@ -168,11 +156,13 @@ var edaEsbuildExportName = (() => {
       }
 
       if (!payload) {
-        showDialog(
-          "Could not extract active schematic data. Please make sure a schematic sheet is currently open in the editor.",
-          "Antigravity Reviewer"
-        );
-        return;
+        if (!silent) {
+          showDialog(
+            "Could not extract active schematic data. Please make sure a schematic sheet is currently open in the editor.",
+            "Antigravity Reviewer"
+          );
+        }
+        return false;
       }
 
       const bodyString = JSON.stringify(payload);
@@ -218,17 +208,86 @@ var edaEsbuildExportName = (() => {
       }
 
       const count = data.components_count !== undefined ? data.components_count : (payload.components ? payload.components.length : "active");
-      showDialog(
-        "Antigravity Audit Complete!\nEvaluated " + count + " components.\n\nSwitch to your Antigravity IDE and ask:\n\"Review my open EasyEDA schematic\"",
-        "Antigravity Audit Complete"
-      );
+      if (silent) {
+        showToast("Antigravity MCP pulled live schematic (" + count + " components)", "info");
+      } else {
+        showDialog(
+          "Antigravity Audit Complete!\nEvaluated " + count + " components.\n\nBackground MCP Pull Bridge is also active — Antigravity can now pull your schematic automatically whenever you ask!",
+          "Antigravity Audit Complete"
+        );
+      }
+      return true;
     } catch (err) {
-      showDialog(
-        "Could not connect to local Antigravity receiver (" + err.message + ").\n\nPlease make sure the Antigravity MCP server or live receiver is running on http://127.0.0.1:8765!",
-        "Connection Error"
-      );
+      if (!silent) {
+        showDialog(
+          "Could not connect to local Antigravity receiver (" + err.message + ").\n\nPlease make sure the Antigravity MCP server or live receiver is running on http://127.0.0.1:8765!",
+          "Connection Error"
+        );
+      }
+      return false;
     }
   }
+
+  async function pollMcpServer() {
+    if (isPolling) return;
+    isPolling = true;
+    try {
+      let resp;
+      if (typeof eda !== "undefined" && eda.sys_ClientUrl && typeof eda.sys_ClientUrl.request === "function") {
+        resp = await eda.sys_ClientUrl.request(POLL_URL, "GET");
+      }
+      if (resp && resp.ok) {
+        const data = await resp.json();
+        if (data && data.command === "pull_schematic") {
+          await captureAndSendSchematic(true);
+        }
+      }
+    } catch (e) {
+      // Receiver offline or busy; ignore quietly during background poll
+    } finally {
+      isPolling = false;
+    }
+  }
+
+  function startMcpPullBridge() {
+    try {
+      if (typeof eda !== "undefined" && eda.sys_Timer && typeof eda.sys_Timer.setIntervalTimer === "function") {
+        eda.sys_Timer.setIntervalTimer(TIMER_ID, 1200, pollMcpServer);
+      }
+    } catch (e) {}
+  }
+
+  function activate(status, arg) {
+    startMcpPullBridge();
+    // Also perform an initial silent sync when a schematic editor opens
+    if (status === "onEditorSchematic" || status === "onProjectOpened") {
+      captureAndSendSchematic(true);
+    }
+  }
+
+  function deactivate() {
+    try {
+      if (typeof eda !== "undefined" && eda.sys_Timer && typeof eda.sys_Timer.clearIntervalTimer === "function") {
+        eda.sys_Timer.clearIntervalTimer(TIMER_ID);
+      }
+    } catch (e) {}
+  }
+
+  function about() {
+    startMcpPullBridge();
+    showDialog(
+      "Antigravity Schematic Reviewer v1.1.0\n\nAuto-Pull MCP Bridge: Active (http://127.0.0.1:8765)\nAntigravity can pull your open EasyEDA Pro schematic on demand without manual menu clicks.",
+      "About Antigravity Reviewer"
+    );
+  }
+
+  async function auditWithAntigravity() {
+    startMcpPullBridge();
+    await captureAndSendSchematic(false);
+  }
+
+  // Ensure the background poll timer starts immediately whenever the script is loaded
+  startMcpPullBridge();
 
   return __toCommonJS(src_exports);
 })();

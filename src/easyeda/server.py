@@ -2,7 +2,9 @@ from __future__ import annotations
 import json
 import sys
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import time
+import urllib.request
+from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -12,14 +14,58 @@ from .datasheet_extractor import parse_bom, merge_bom_into_graph
 from .parts_manager import PartsManager
 from .reporter import generate_schematic_report
 
-# Global live state
+# Global live state & on-demand pull synchronization
 _LAST_LIVE_GRAPH: Optional[SchematicGraph] = None
 _LAST_LIVE_REPORT: Optional[str] = None
 _CACHE_REPORT_FILE = Path(__file__).resolve().parents[2] / "parts_cache" / ".last_live_report.md"
 
+_PULL_LOCK = threading.Lock()
+_PULL_REQUESTED: bool = False
+_PULL_COMPLETED_EVENT = threading.Event()
+_LAST_POLL_TIME: float = 0.0
+_ACTIVE_SERVER_PORT: Optional[int] = None
+
+
+def _wait_for_in_process_pull(timeout: float = 4.0) -> bool:
+    """Flags a pull request for the polling EasyEDA Pro extension and waits for /review."""
+    global _PULL_REQUESTED
+    with _PULL_LOCK:
+        _PULL_COMPLETED_EVENT.clear()
+        _PULL_REQUESTED = True
+    completed = _PULL_COMPLETED_EVENT.wait(timeout=timeout)
+    with _PULL_LOCK:
+        _PULL_REQUESTED = False
+    return completed
+
+
+def request_live_pull(timeout: float = 4.0, port: int = 8765) -> Optional[str]:
+    """
+    Initiates an on-demand schematic pull from EasyEDA Pro.
+    Works both in-process (when this process owns the live receiver) and cross-process (via /trigger_pull).
+    """
+    global _LAST_LIVE_REPORT
+    if _ACTIVE_SERVER_PORT == port:
+        if _LAST_POLL_TIME > 0 and (time.time() - _LAST_POLL_TIME) < 15.0:
+            _wait_for_in_process_pull(timeout=timeout)
+        return _LAST_LIVE_REPORT
+
+    # Cross-process: ask the running live receiver daemon on `port` to trigger a pull
+    try:
+        url = f"http://127.0.0.1:{port}/trigger_pull?timeout={timeout}"
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=timeout + 2.0) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                if data.get("report"):
+                    _LAST_LIVE_REPORT = data["report"]
+                    return _LAST_LIVE_REPORT
+    except Exception:
+        pass
+    return None
+
 
 class EasyEDALiveHandler(BaseHTTPRequestHandler):
-    """Receives live schematic dumps from the EasyEDA Pro extension over localhost:8765."""
+    """Bidirectional HTTP bridge for the EasyEDA Pro extension over localhost:8765."""
 
     def _read_body(self) -> str:
         transfer_encoding = self.headers.get("Transfer-Encoding", "").lower()
@@ -45,6 +91,38 @@ class EasyEDALiveHandler(BaseHTTPRequestHandler):
             return self.rfile.read(content_length).decode("utf-8", errors="replace")
         return ""
 
+    def do_GET(self):
+        global _PULL_REQUESTED, _LAST_POLL_TIME
+        if self.path.startswith("/poll"):
+            _LAST_POLL_TIME = time.time()
+            with _PULL_LOCK:
+                should_pull = _PULL_REQUESTED
+                _PULL_REQUESTED = False
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            cmd = "pull_schematic" if should_pull else "idle"
+            self.wfile.write(json.dumps({"command": cmd}).encode("utf-8"))
+        elif self.path.startswith("/trigger_pull"):
+            wait_sec = 4.0 if (_LAST_POLL_TIME > 0 and (time.time() - _LAST_POLL_TIME) < 15.0) else 1.5
+            pulled = _wait_for_in_process_pull(timeout=wait_sec)
+            report = _LAST_LIVE_REPORT
+            if not report and _CACHE_REPORT_FILE.exists():
+                report = _CACHE_REPORT_FILE.read_text(encoding="utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "success" if pulled else "cached",
+                "pulled_live": pulled,
+                "report": report or ""
+            }).encode("utf-8"))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
     def do_POST(self):
         global _LAST_LIVE_GRAPH, _LAST_LIVE_REPORT
         if self.path.startswith("/review"):
@@ -63,13 +141,13 @@ class EasyEDALiveHandler(BaseHTTPRequestHandler):
                         graph = parse_protel_netlist(data["netlist_text"])
                         if "project_name" in data:
                             graph.project_name = data["project_name"]
+                        if "bom_data" in data and isinstance(data["bom_data"], dict):
+                            merge_bom_into_graph(graph, data["bom_data"])
                         if "bom_csv" in data and isinstance(data["bom_csv"], str) and data["bom_csv"].strip():
                             try:
                                 merge_bom_into_graph(graph, parse_bom(data["bom_csv"]))
                             except Exception:
                                 pass
-                        if "bom_data" in data and isinstance(data["bom_data"], dict):
-                            merge_bom_into_graph(graph, data["bom_data"])
                     else:
                         graph = parse_schematic_json(data)
                 else:
@@ -85,6 +163,8 @@ class EasyEDALiveHandler(BaseHTTPRequestHandler):
                     _CACHE_REPORT_FILE.write_text(report, encoding="utf-8")
                 except Exception:
                     pass
+
+                _PULL_COMPLETED_EVENT.set()
 
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
@@ -120,8 +200,10 @@ class EasyEDALiveHandler(BaseHTTPRequestHandler):
 
 
 def start_live_receiver(port: int = 8765) -> HTTPServer:
-    """Starts the background HTTP receiver for EasyEDA Pro live extensions."""
-    server = HTTPServer(("127.0.0.1", port), EasyEDALiveHandler)
+    """Starts the background threaded HTTP receiver for EasyEDA Pro live extensions."""
+    global _ACTIVE_SERVER_PORT
+    server = ThreadingHTTPServer(("127.0.0.1", port), EasyEDALiveHandler)
+    _ACTIVE_SERVER_PORT = port
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return server
@@ -134,17 +216,20 @@ def start_live_receiver(port: int = 8765) -> HTTPServer:
 def audit_schematic(schematic_path: Optional[str] = None, bom_path: Optional[str] = None) -> str:
     """
     Audits an EasyEDA schematic and returns a rendered Markdown report.
-    If schematic_path is omitted or 'live', uses the last live schematic pushed from EasyEDA Pro.
+    If schematic_path is omitted or 'live', initiates an on-demand live pull from EasyEDA Pro.
     """
     global _LAST_LIVE_REPORT
     pm = PartsManager()
 
     if not schematic_path or schematic_path.lower() == "live":
+        pulled_report = request_live_pull(timeout=4.0)
+        if pulled_report:
+            return pulled_report
         if _LAST_LIVE_REPORT:
             return _LAST_LIVE_REPORT
         if _CACHE_REPORT_FILE.exists():
             return _CACHE_REPORT_FILE.read_text(encoding="utf-8")
-        return "No live schematic received yet from EasyEDA Pro. Use 'Audit Schematic with Antigravity' in EasyEDA Pro, or specify a file path."
+        return "No live schematic received yet from EasyEDA Pro. Make sure EasyEDA Pro is open with the Antigravity extension enabled, or specify a file path."
 
     path = Path(schematic_path)
     if not path.exists():
