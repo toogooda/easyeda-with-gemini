@@ -1,4 +1,6 @@
 from __future__ import annotations
+import itertools
+import re
 from typing import Dict, List, Optional, Tuple
 
 from .models import Component, Pin, SchematicGraph, CheckResult, CheckStatus, parse_resistance, parse_capacitance
@@ -94,51 +96,143 @@ def check_ic_decoupling(comp: Component, graph: SchematicGraph, parts_manager: P
 def check_i2c_peripheral(comp: Component, graph: SchematicGraph, parts_manager: PartsManager) -> List[CheckResult]:
     """Resolves I2C device address from strapping pins and validates bus pull-up resistors."""
     results: List[CheckResult] = []
-    profile = parts_manager.get_profile(comp.lcsc_id) if comp.lcsc_id else None
+    profile = parts_manager.find_profile(lcsc_id=comp.lcsc_id or "", part_number=comp.value or "") if parts_manager else None
 
-    # 1. Address Strapping Resolution
-    if profile and profile.i2c_addresses:
-        # Identify strapping pin on component (e.g. ADD0, ADD, A0, A1, ADDR)
-        strap_pin = comp.find_pin_matching(r"^(ADD\d*|A\d+|ADDR\d*)$")
-        if strap_pin:
-            strap_net = graph.get_net(strap_pin.net)
+    # Fallback pin names from profile.pin_map if component pins are numeric
+    if profile and profile.pin_map:
+        for pin_num, pin_name in profile.pin_map.items():
+            p = comp.get_pin(str(pin_num))
+            if p and (not p.name or p.name == p.number or p.name.isdigit()):
+                p.name = str(pin_name)
 
-            state = "FLOAT"
-            if strap_net:
-                if strap_net.is_ground:
-                    state = "GND"
-                elif strap_net.is_power:
-                    state = "V+"
-                elif "SDA" in strap_net.name.upper():
-                    state = "SDA"
-                elif "SCL" in strap_net.name.upper():
-                    state = "SCL"
+    # 1. Universal Address Strapping Resolution
+    if profile and (profile.i2c_addresses or profile.address_base):
+        def _get_pin_state(pin: Optional[Pin]) -> str:
+            if not pin or not pin.net:
+                return "FLOAT"
+            net = graph.get_net(pin.net)
+            if not net:
+                return "FLOAT"
+            net_up = net.name.upper()
+            if net.is_ground or any(g in net_up for g in ["GND", "VSS", "GROUND"]):
+                return "GND"
+            if net.is_power or any(pwr in net_up for pwr in ["3V3", "5V", "VCC", "VDD", "VS", "V+", "POWER", "VIN"]):
+                return "VS" if any(x in net_up for x in ["VS", "3V3", "5V"]) else "VCC"
+            if "SDA" in net_up:
+                return "SDA"
+            if "SCL" in net_up:
+                return "SCL"
+            return "FLOAT"
 
-            # Match against profile strapping table
-            strap_key = f"{strap_pin.name}={state}"
-            alt_key = f"ADD0={state}"
-            addr = profile.i2c_addresses.get(strap_key) or profile.i2c_addresses.get(alt_key)
+        # Determine target strapping pins
+        target_pins: List[Pin] = []
+        if profile.address_pins:
+            for p_name in profile.address_pins:
+                p = comp.get_pin_by_name(p_name)
+                if not p and profile.pin_map:
+                    for num, name in profile.pin_map.items():
+                        if name.upper() == p_name.upper():
+                            p = comp.get_pin(str(num))
+                            break
+                if p:
+                    target_pins.append(p)
+        else:
+            # Auto-detect address strapping pins (A0, A1, A2, ADD0, etc.)
+            matched = [p for p in comp.pins.values() if re.match(r"^(ADD\d*|A\d+|ADDR\d*)$", p.name.upper())]
+            target_pins = sorted(matched, key=lambda x: x.name.upper(), reverse=True)
 
-            if addr:
-                results.append(CheckResult(
-                    ref_des=comp.ref_des,
-                    component_type="IC_I2C",
-                    status=CheckStatus.PASS,
-                    message=f"I2C Address configured: Pin {strap_pin.name} connected to {state} -> 7-bit Address is {addr}.",
-                    details={"pin": strap_pin.name, "state": state, "i2c_address": addr}
-                ))
-            else:
-                results.append(CheckResult(
-                    ref_des=comp.ref_des,
-                    component_type="IC_I2C",
-                    status=CheckStatus.WARN,
-                    message=f"I2C strapping pin {strap_pin.name} connected to '{strap_pin.net}' (State: {state}), but address could not be matched in profile.",
-                    details={"pin": strap_pin.name, "net": strap_pin.net, "state": state}
-                ))
+        addr: Optional[str] = None
+        state_summary = ""
+
+        # Case 0: Fixed address (0 strapping pins)
+        if not target_pins:
+            if "fixed" in profile.i2c_addresses:
+                addr = profile.i2c_addresses["fixed"]
+                state_summary = "Fixed internal address"
+            elif "default" in profile.i2c_addresses:
+                addr = profile.i2c_addresses["default"]
+                state_summary = "Default internal address"
+            elif len(profile.i2c_addresses) == 1:
+                addr = list(profile.i2c_addresses.values())[0]
+                state_summary = "Fixed internal address"
+
+        # Case 1: Single strapping pin (e.g. TMP102)
+        elif len(target_pins) == 1:
+            p = target_pins[0]
+            st = _get_pin_state(p)
+            power_aliases = ["VS", "VCC", "V+"] if st in ("VS", "VCC", "V+") else [st]
+            for candidate_st in power_aliases:
+                addr = (
+                    profile.i2c_addresses.get(f"{p.name}={candidate_st}")
+                    or profile.i2c_addresses.get(candidate_st)
+                    or profile.i2c_addresses.get(f"ADD0={candidate_st}")
+                    or profile.i2c_addresses.get(f"A0={candidate_st}")
+                )
+                if addr:
+                    st = candidate_st
+                    break
+            state_summary = f"{p.name}={p.net} ({st})"
+
+        # Case 2: Multi-pin strapping (e.g. INA226, 24AA024/24LC024)
+        else:
+            pin_states = [(p.name, _get_pin_state(p)) for p in target_pins]
+            state_summary = ", ".join([f"{name}={comp.get_pin_by_name(name).net if comp.get_pin_by_name(name) else ''} ({st})" for name, st in pin_states])
+
+            # Try composite key: e.g. GND_VS, GND_SCL, GND_GND_VCC
+            state_lists = []
+            for _, st in pin_states:
+                if st in ("VS", "VCC", "V+"):
+                    state_lists.append(["VS", "VCC", "V+"])
+                else:
+                    state_lists.append([st])
+
+            for combo in itertools.product(*state_lists):
+                key = "_".join(combo)
+                if key in profile.i2c_addresses:
+                    addr = profile.i2c_addresses[key]
+                    break
+
+            # If not matched in table, evaluate binary bit-strapping formula
+            if not addr and profile.address_base:
+                try:
+                    base_int = int(str(profile.address_base), 16) if str(profile.address_base).startswith("0x") else int(profile.address_base)
+                    offset = 0
+                    for p_name, st in pin_states:
+                        m_bit = re.search(r"(\d+)$", p_name)
+                        if m_bit:
+                            bit_idx = int(m_bit.group(1))
+                            if st in ("VS", "VCC", "V+"):
+                                offset |= (1 << bit_idx)
+                    addr = f"0x{(base_int | offset):02X}"
+                except Exception:
+                    pass
+
+        if addr:
+            results.append(CheckResult(
+                ref_des=comp.ref_des,
+                component_type="IC_I2C",
+                status=CheckStatus.PASS,
+                message=f"I2C Address configured: {state_summary} -> 7-bit Address is {addr}.",
+                details={"i2c_address": addr, "configuration": state_summary}
+            ))
+        elif target_pins:
+            results.append(CheckResult(
+                ref_des=comp.ref_des,
+                component_type="IC_I2C",
+                status=CheckStatus.WARN,
+                message=f"I2C address pins detected ({state_summary}), but address could not be resolved from profile.",
+                details={"configuration": state_summary}
+            ))
 
     # 2. Bus Pull-Up Checks (SDA, SCL)
-    sda_pin = comp.find_pin_matching(r"^SDA")
-    scl_pin = comp.find_pin_matching(r"^SCL")
+    sda_pin = comp.find_pin_matching(r"^SDA") or comp.get_pin_by_name("SDA")
+    scl_pin = comp.find_pin_matching(r"^SCL") or comp.get_pin_by_name("SCL")
+    if not sda_pin and profile and profile.pin_map:
+        for num, role in profile.pin_map.items():
+            if str(role).upper() == "SDA":
+                sda_pin = comp.get_pin(str(num))
+            elif str(role).upper() == "SCL":
+                scl_pin = comp.get_pin(str(num))
 
     for bus_pin, bus_name in [(sda_pin, "SDA"), (scl_pin, "SCL")]:
         if not bus_pin:

@@ -20,6 +20,8 @@ class PartProfile:
     peripherals: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     pin_map: Dict[str, str] = field(default_factory=dict)  # e.g. {"1": "CATHODE", "2": "ANODE"} or {"1": "BASE", "2": "COLLECTOR", "3": "EMITTER"}
     package: str = ""
+    address_pins: List[str] = field(default_factory=list)  # e.g. ["A1", "A0"] or ["A2", "A1", "A0"]
+    address_base: str = ""
     raw_data: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -45,6 +47,8 @@ class PartProfile:
             peripherals=data.get("peripherals", {}),
             pin_map=data.get("pin_map") or data.get("pins", {}),
             package=data.get("package", ""),
+            address_pins=data.get("address_pins", []),
+            address_base=data.get("address_base", ""),
             raw_data=data
         )
 

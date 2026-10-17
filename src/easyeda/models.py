@@ -152,13 +152,10 @@ class Net:
         if self.is_ground:
             return False
         return (
-            norm.startswith("+")
-            or norm.startswith("VCC")
-            or norm.startswith("VDD")
-            or norm.startswith("VIN")
-            or norm.startswith("VBUS")
-            or norm.startswith("VBAT")
+            bool(re.match(r"^\+?[0-9]+[V][0-9]*$", norm))
+            or norm.startswith(("+", "VCC", "VDD", "VIN", "VBUS", "VBAT"))
             or norm.endswith("V")
+            or norm in ("VS", "V+", "PWR", "POWER")
         )
 
     def add_pin(self, pin: Pin) -> None:
