@@ -145,6 +145,22 @@ def merge_bom_into_graph(graph: SchematicGraph, bom_data: Dict[str, Dict[str, st
             if new_type != "UNKNOWN" and (comp.comp_type in ("UNKNOWN", "IC") or new_type != "IC"):
                 comp.comp_type = new_type
 
+            # Enrich component pins and profile metadata via PartsManager
+            try:
+                from .parts_manager import PartsManager
+                pm = PartsManager()
+                prof = pm.find_profile(lcsc_id=comp.lcsc_id or "", part_number=comp.value or "")
+                if prof:
+                    if prof.part_type and comp.comp_type in ("UNKNOWN", "IC"):
+                        comp.comp_type = prof.part_type
+                    if prof.pin_map:
+                        for pin_num, pin_name in prof.pin_map.items():
+                            pin = comp.get_pin(str(pin_num))
+                            if pin and (not pin.name or pin.name == pin.number or pin.name.isdigit()):
+                                pin.name = str(pin_name)
+            except Exception:
+                pass
+
 
 def download_datasheet(url: str, lcsc_id: str, dest_dir: Union[str, Path] = "datasheets") -> Optional[Path]:
     """Downloads a datasheet PDF via URL into datasheets/<lcsc_id>.pdf."""

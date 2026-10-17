@@ -44,14 +44,37 @@ def generate_schematic_report(graph: SchematicGraph, parts_manager: Optional[Par
             checks.extend(check_ic_decoupling(comp, graph, parts_manager))
             is_i2c = (
                 "I2C" in c_type
-                or any(s in val for s in ["TMP", "BMP", "BME", "AHT", "SHT", "MPU"])
-                or (profile is not None and (profile.part_type == "I2C_SENSOR" or bool(profile.i2c_addresses)))
-                or (comp.datasheet and any(s in comp.datasheet.upper() for s in ["TMP", "BMP", "BME", "AHT", "SHT", "MPU"]))
+                or any(s in val for s in ["TMP", "BMP", "BME", "AHT", "SHT", "MPU", "INA226", "24AA", "24LC"])
+                or (profile is not None and (profile.part_type in ("I2C_SENSOR", "IC_I2C") or bool(profile.i2c_addresses) or bool(profile.address_base)))
+                or (comp.datasheet and any(s in comp.datasheet.upper() for s in ["TMP", "BMP", "BME", "AHT", "SHT", "MPU", "INA226", "24AA", "24LC"]))
             )
             if is_i2c:
                 checks.extend(check_i2c_peripheral(comp, graph, parts_manager))
             if checks:
                 ic_results[comp.ref_des] = checks
+
+    # Check for I2C Address Collisions across devices on the same bus
+    i2c_devices_by_bus: Dict[str, Dict[str, List[str]]] = {}
+    for ref_des, checks in ic_results.items():
+        comp = graph.get_component(ref_des)
+        sda_pin = comp.find_pin_matching(r"^SDA") or (comp.get_pin_by_name("SDA") if comp else None)
+        bus_name = sda_pin.net if sda_pin else "I2C"
+        for c in checks:
+            if "i2c_address" in c.details:
+                addr = c.details["i2c_address"]
+                i2c_devices_by_bus.setdefault(bus_name, {}).setdefault(addr, []).append(ref_des)
+
+    for bus_name, addrs in i2c_devices_by_bus.items():
+        for addr, ref_list in addrs.items():
+            if len(ref_list) > 1:
+                collision_result = CheckResult(
+                    ref_des=ref_list[0],
+                    component_type="IC_I2C",
+                    status=CheckStatus.FAIL,
+                    message=f"I2C Address Collision: Devices {', '.join(ref_list)} on bus '{bus_name}' share identical 7-bit address {addr}!",
+                    details={"i2c_address": addr, "conflicting_devices": ", ".join(ref_list), "bus": bus_name}
+                )
+                ic_results[ref_list[0]].append(collision_result)
 
     # Count issues
     all_results: List[CheckResult] = []
@@ -122,7 +145,9 @@ def generate_schematic_report(graph: SchematicGraph, parts_manager: Optional[Par
                 prof = parts_manager.get_profile(comp.lcsc_id)
                 if prof:
                     val = prof.part_number
-            md.append(f"### {ref_des}: {val}")
+            i2c_addr = next((c.details.get("i2c_address") for c in checks if "i2c_address" in c.details), None)
+            addr_header = f" [7-bit I2C: {i2c_addr}]" if i2c_addr else ""
+            md.append(f"### {ref_des}: {val}{addr_header}")
             if comp and comp.datasheet:
                 md.append(f"* **Datasheet:** [{comp.datasheet}]({comp.datasheet})")
             for c in checks:
@@ -180,9 +205,20 @@ def generate_schematic_report(graph: SchematicGraph, parts_manager: Optional[Par
         for it in warning_items:
             md.append(f"  * **{it.ref_des}:** {it.message}")
 
-    i2c_addresses = [f"{r.ref_des} @ {r.details['i2c_address']}" for r in all_results if "i2c_address" in r.details]
+    i2c_entries = []
+    seen_i2c_refs = set()
+    for r in all_results:
+        if "i2c_address" in r.details and r.ref_des not in seen_i2c_refs:
+            seen_i2c_refs.add(r.ref_des)
+            comp = graph.get_component(r.ref_des)
+            val = comp.value if (comp and comp.value and comp.value != "{Value}") else ""
+            if val:
+                i2c_entries.append(f"{r.ref_des} ({val}) @ {r.details['i2c_address']}")
+            else:
+                i2c_entries.append(f"{r.ref_des} @ {r.details['i2c_address']}")
+
     md.append(f"* 🟢 **INFO & PASS ({len(pass_items)} checks passed):**")
-    if i2c_addresses:
-        md.append(f"  * Detected I2C Devices: {', '.join(i2c_addresses)}")
+    if i2c_entries:
+        md.append(f"  * Detected I2C Devices: {', '.join(i2c_entries)}")
 
     return "\n".join(md)

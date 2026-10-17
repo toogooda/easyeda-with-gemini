@@ -30,6 +30,7 @@
     "9": "IN-",
     "10": "IN+"
   },
+  "address_pins": ["A1", "A0"],
   "i2c_addresses": {
     "GND_GND": "0x40",
     "GND_VS": "0x41",
@@ -38,6 +39,14 @@
     "VS_GND": "0x44",
     "VS_VS": "0x45",
     "VS_SDA": "0x46",
-    "VS_SCL": "0x47"
+    "VS_SCL": "0x47",
+    "SDA_GND": "0x48",
+    "SDA_VS": "0x49",
+    "SDA_SDA": "0x4A",
+    "SDA_SCL": "0x4B",
+    "SCL_GND": "0x4C",
+    "SCL_VS": "0x4D",
+    "SCL_SDA": "0x4E",
+    "SCL_SCL": "0x4F"
   }
 }

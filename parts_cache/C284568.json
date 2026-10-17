@@ -1,0 +1,57 @@
+{
+  "lcsc_part": "C284568",
+  "part_number": "24LC024T-I/SN",
+  "part_type": "IC_I2C",
+  "package": "SOIC-8",
+  "voltage_limits": {
+    "vcc_min": 2.5,
+    "vcc_max": 5.5
+  },
+  "power_pins": [
+    {
+      "pin": "8",
+      "name": "VCC",
+      "rail": "VCC",
+      "decoupling": "100nF"
+    }
+  ],
+  "ground_pins": [
+    "4"
+  ],
+  "pin_map": {
+    "1": "A0",
+    "2": "A1",
+    "3": "A2",
+    "4": "VSS",
+    "5": "SDA",
+    "6": "SCL",
+    "7": "WP",
+    "8": "VCC"
+  },
+  "address_pins": ["A2", "A1", "A0"],
+  "address_base": "0x50",
+  "i2c_addresses": {
+    "GND_GND_GND": "0x50",
+    "GND_GND_VCC": "0x51",
+    "GND_GND_V+": "0x51",
+    "GND_GND_VS": "0x51",
+    "GND_VCC_GND": "0x52",
+    "GND_V+_GND": "0x52",
+    "GND_VS_GND": "0x52",
+    "GND_VCC_VCC": "0x53",
+    "GND_V+_V+": "0x53",
+    "GND_VS_VS": "0x53",
+    "VCC_GND_GND": "0x54",
+    "V+_GND_GND": "0x54",
+    "VS_GND_GND": "0x54",
+    "VCC_GND_VCC": "0x55",
+    "V+_GND_V+": "0x55",
+    "VS_GND_VS": "0x55",
+    "VCC_VCC_GND": "0x56",
+    "V+_V+_GND": "0x56",
+    "VS_VS_GND": "0x56",
+    "VCC_VCC_VCC": "0x57",
+    "V+_V+_V+": "0x57",
+    "VS_VS_VS": "0x57"
+  }
+}
