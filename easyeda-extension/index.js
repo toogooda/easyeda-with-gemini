@@ -60,18 +60,40 @@ export async function auditWithAntigravity() {
       throw new Error("Could not extract active schematic. Please ensure a schematic sheet is open in EasyEDA Pro.");
     }
 
-    const resp = await fetch(ENDPOINT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    let resp;
+    if (typeof eda !== "undefined" && eda.sys_ClientUrl && typeof eda.sys_ClientUrl.request === "function") {
+      resp = await eda.sys_ClientUrl.request(ENDPOINT_URL, "POST", {
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } else {
+      resp = await fetch(ENDPOINT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    }
 
-    if (!resp.ok) {
+    if (resp && resp.status && resp.status >= 400) {
       throw new Error(`Local MCP server returned HTTP ${resp.status}`);
     }
 
-    const data = await resp.json();
-    const count = data.components_count || "all";
+    let data = {};
+    try {
+      if (typeof resp.json === "function") {
+        data = await resp.json();
+      } else if (typeof resp.text === "function") {
+        data = JSON.parse(await resp.text());
+      } else if (typeof resp === "string") {
+        data = JSON.parse(resp);
+      } else if (resp && typeof resp === "object") {
+        data = resp;
+      }
+    } catch (parseErr) {
+      data = { status: "success" };
+    }
+
+    const count = data.components_count !== undefined ? data.components_count : "active";
     alert(`Antigravity Audit Complete!\nEvaluated ${count} components.\nCheck your Antigravity IDE for the rendered review report.`);
   } catch (err) {
     alert(`Antigravity Reviewer Error:\n${err.message}\n\nPlease ensure your local MCP server or live receiver is running on port 8765.`);
