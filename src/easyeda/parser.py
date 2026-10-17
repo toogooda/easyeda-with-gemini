@@ -9,27 +9,43 @@ from typing import Dict, List, Optional, Union
 from .models import Component, Pin, SchematicGraph
 
 
-def infer_component_type(ref_des: str, value: str = "") -> str:
-    """Infers component category from ref_des and value string."""
+def infer_component_type(ref_des: str, value: str = "", lcsc_id: str = "", package: str = "") -> str:
+    """Infers component category from part_number/value, package, and ref_des."""
     ref_upper = ref_des.upper()
     val_upper = value.upper()
+    pkg_upper = package.upper()
 
+    # 1. LED detection
     if ref_upper.startswith("LED") or "LED" in val_upper:
         return "LED"
-    if ref_upper.startswith("D"):
-        return "DIODE"
+
+    # 2. Known diode part numbers (regardless of whether labeled D, U, or CR)
+    diode_patterns = [
+        "1N58", "1N4148", "1N400", "1N54", "SS1", "SS2", "SS3", "SS5",
+        "B5819", "MBR", "BAT54", "RS1", "US1", "ES1", "SMAJ", "SMBJ", "SMCJ", "TVS",
+        "IN58"  # Common typo in EasyEDA libraries for 1N5822
+    ]
+    if any(p in val_upper for p in diode_patterns) or ref_upper.startswith("D"):
+        # Exception: ESD arrays in SOIC/SOT (like SP720) or multi-channel ICs
+        if not ("SP720" in val_upper or ("IC" in val_upper and any(n in pkg_upper for n in ["SOIC", "TSSOP", "QFN"]))):
+            return "DIODE"
+
+    # 3. Transistor detection
+    if ref_upper.startswith("Q") or any(t in val_upper for t in ["2N7002", "SI230", "AO340", "B772", "2SD965", "2N3904", "2N3906", "S8050", "S8550", "BC547"]):
+        if "MOS" in val_upper or any(m in val_upper for m in ["2N7002", "SI230", "AO340"]):
+            return "MOSFET_N" if "P" not in val_upper else "MOSFET_P"
+        if "PNP" in val_upper or "B772" in val_upper or "2N3906" in val_upper or "S8550" in val_upper:
+            return "BJT_PNP"
+        return "BJT_NPN"
+
     if ref_upper.startswith("R"):
         return "RESISTOR"
     if ref_upper.startswith("C"):
         return "CAPACITOR"
-    if ref_upper.startswith("Q"):
-        if "MOS" in val_upper or "2N7002" in val_upper or "SI230" in val_upper or "AO340" in val_upper:
-            return "MOSFET_N" if "P" not in val_upper else "MOSFET_P"
-        return "BJT_NPN"
     if ref_upper.startswith("U"):
         if any(mcu in val_upper for mcu in ["STM32", "ESP32", "RP2040", "ATMEGA", "ATTINY", "PIC"]):
             return "MCU"
-        if any(sensor in val_upper for sensor in ["TMP102", "BMP280", "BME280", "AHT20", "SHT30", "MPU6050"]):
+        if any(sensor in val_upper for sensor in ["TMP102", "BMP280", "BME280", "AHT20", "SHT30", "MPU6050", "INA226"]):
             return "IC_I2C"
         return "IC"
     if ref_upper.startswith("Y") or ref_upper.startswith("X"):

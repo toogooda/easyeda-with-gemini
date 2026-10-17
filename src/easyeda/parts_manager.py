@@ -18,6 +18,8 @@ class PartProfile:
     boot_strapping: List[Dict[str, str]] = field(default_factory=list)
     i2c_addresses: Dict[str, str] = field(default_factory=dict)
     peripherals: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    pin_map: Dict[str, str] = field(default_factory=dict)  # e.g. {"1": "CATHODE", "2": "ANODE"} or {"1": "BASE", "2": "COLLECTOR", "3": "EMITTER"}
+    package: str = ""
     raw_data: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -41,6 +43,8 @@ class PartProfile:
             boot_strapping=data.get("boot_strapping", []),
             i2c_addresses=data.get("i2c_addresses") or data.get("address_strapping", {}),
             peripherals=data.get("peripherals", {}),
+            pin_map=data.get("pin_map") or data.get("pins", {}),
+            package=data.get("package", ""),
             raw_data=data
         )
 
@@ -74,6 +78,27 @@ class PartsManager:
             return PartProfile.from_dict(data)
         except Exception:
             return None
+
+    def find_profile(self, lcsc_id: str = "", part_number: str = "") -> Optional[PartProfile]:
+        """Finds a profile by LCSC ID first, or by part_number substring/exact match."""
+        if lcsc_id:
+            p = self.get_profile(lcsc_id)
+            if p:
+                return p
+        if not part_number:
+            return None
+        pn_clean = part_number.strip().upper()
+        # Scan cached profiles
+        for f in self.cache_dir.glob("*.json"):
+            try:
+                with open(f, "r", encoding="utf-8") as fp:
+                    data = json.load(fp)
+                stored_pn = (data.get("part_number") or "").upper()
+                if stored_pn and (stored_pn == pn_clean or pn_clean in stored_pn or stored_pn in pn_clean):
+                    return PartProfile.from_dict(data)
+            except Exception:
+                continue
+        return None
 
     def save_profile(self, profile: PartProfile) -> Path:
         path = self._get_path(profile.lcsc_part)

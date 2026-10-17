@@ -1,13 +1,12 @@
 # Conductor Tracks
 
 ## Active Tracks
-| Track | Description | Status | Issue | Branch |
-| :--- | :--- | :--- | :--- | :--- |
-| *None* | | | | |
+*(No active tracks)*
 
 ## Archived Tracks
 | Track | Description | Status | Issue | PR |
 | :--- | :--- | :--- | :--- | :--- |
+| [fix-issue-11-pinout-profiles](./archive/fix-issue-11-pinout-profiles/) | Fix: Eliminate Blind Pin Assumptions & Resolve Component Types via Part Profiles | Completed | [#11](https://github.com/toogooda/easyeda-with-gemini/issues/11) | [#12](https://github.com/toogooda/easyeda-with-gemini/pull/12) |
 | [phase-5-mcp-skill](./archive/phase-5-mcp-skill/) | Phase 5: MCP Server, Live Extension & Antigravity Skill | Completed | [#9](https://github.com/toogooda/easyeda-with-gemini/issues/9) | [#10](https://github.com/toogooda/easyeda-with-gemini/pull/10) |
 | [phase-4-mcu-ic-checkers](./archive/phase-4-mcu-ic-checkers/) | Phase 4: IC, I2C & Microcontroller Checker Engine | Completed | [#7](https://github.com/toogooda/easyeda-with-gemini/issues/7) | [#8](https://github.com/toogooda/easyeda-with-gemini/pull/8) |
 | [phase-3-jit-cache](./archive/phase-3-jit-cache/) | Phase 3: JIT Part Cache & Datasheet Extractor | Completed | [#5](https://github.com/toogooda/easyeda-with-gemini/issues/5) | [#6](https://github.com/toogooda/easyeda-with-gemini/pull/6) |

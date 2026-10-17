@@ -1,0 +1,15 @@
+{
+  "lcsc_part": "C2903782",
+  "part_number": "B772",
+  "part_type": "BJT_PNP",
+  "package": "SOT-89",
+  "voltage_limits": {
+    "vceo": 30.0,
+    "ic_max": 3.0
+  },
+  "pin_map": {
+    "1": "BASE",
+    "2": "COLLECTOR",
+    "3": "EMITTER"
+  }
+}

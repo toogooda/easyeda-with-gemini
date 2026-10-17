@@ -44,14 +44,15 @@ def request_live_pull(timeout: float = 4.0, port: int = 8765) -> Optional[str]:
     Works both in-process (when this process owns the live receiver) and cross-process (via /trigger_pull).
     """
     global _LAST_LIVE_REPORT
-    if _ACTIVE_SERVER_PORT == port:
+    target_port = _ACTIVE_SERVER_PORT if _ACTIVE_SERVER_PORT is not None else port
+    if _ACTIVE_SERVER_PORT == target_port:
         if _LAST_POLL_TIME > 0 and (time.time() - _LAST_POLL_TIME) < 15.0:
             _wait_for_in_process_pull(timeout=timeout)
         return _LAST_LIVE_REPORT
 
-    # Cross-process: ask the running live receiver daemon on `port` to trigger a pull
+    # Cross-process: ask the running live receiver daemon on `target_port` to trigger a pull
     try:
-        url = f"http://127.0.0.1:{port}/trigger_pull?timeout={timeout}"
+        url = f"http://127.0.0.1:{target_port}/trigger_pull?timeout={timeout}"
         req = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(req, timeout=timeout + 2.0) as resp:
             if resp.status == 200:

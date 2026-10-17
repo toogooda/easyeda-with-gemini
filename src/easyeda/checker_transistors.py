@@ -5,12 +5,13 @@ import re
 from .models import Component, Pin, SchematicGraph, CheckResult, CheckStatus, parse_resistance
 
 
-def get_bjt_pins(comp: Component) -> Tuple[Optional[Pin], Optional[Pin], Optional[Pin]]:
+def get_bjt_pins(comp: Component, parts_manager: Optional[Any] = None) -> Tuple[Optional[Pin], Optional[Pin], Optional[Pin]]:
     """Returns (base_pin, emitter_pin, collector_pin) for a BJT."""
     base: Optional[Pin] = None
     emitter: Optional[Pin] = None
     collector: Optional[Pin] = None
 
+    # 1. Check explicit pin names
     for pin in comp.pins.values():
         name_up = pin.name.upper()
         if name_up in ("B", "BASE"):
@@ -19,24 +20,51 @@ def get_bjt_pins(comp: Component) -> Tuple[Optional[Pin], Optional[Pin], Optiona
             emitter = pin
         elif name_up in ("C", "COLLECTOR"):
             collector = pin
+    if base and emitter and collector:
+        return base, emitter, collector
 
-    # Fallback standard SOT-23 mapping (1=B, 2=E, 3=C)
-    if not base:
+    # 2. Check PartProfile pin_map
+    if parts_manager:
+        profile = parts_manager.find_profile(lcsc_id=comp.lcsc_id, part_number=comp.value)
+        if profile and profile.pin_map:
+            for pin_num, role in profile.pin_map.items():
+                role_up = str(role).upper()
+                if role_up in ("B", "BASE"):
+                    base = comp.get_pin(pin_num)
+                elif role_up in ("E", "EMITTER"):
+                    emitter = comp.get_pin(pin_num)
+                elif role_up in ("C", "COLLECTOR"):
+                    collector = comp.get_pin(pin_num)
+            if base and emitter and collector:
+                return base, emitter, collector
+
+    # 3. Check package standard mapping
+    pkg_up = comp.package.upper()
+    if "SOT-89" in pkg_up:
+        # Standard SOT-89: Pin 1 = Base, Pin 2 = Collector (center/tab), Pin 3 = Emitter
         base = comp.get_pin("1")
-    if not emitter:
+        collector = comp.get_pin("2")
+        emitter = comp.get_pin("3")
+        if base and emitter and collector:
+            return base, emitter, collector
+    elif "SOT-23" in pkg_up or "SOT23" in pkg_up:
+        # Standard SOT-23 BJT: Pin 1 = Base, Pin 2 = Emitter, Pin 3 = Collector
+        base = comp.get_pin("1")
         emitter = comp.get_pin("2")
-    if not collector:
         collector = comp.get_pin("3")
+        if base and emitter and collector:
+            return base, emitter, collector
 
-    return base, emitter, collector
+    return None, None, None
 
 
-def get_mosfet_pins(comp: Component) -> Tuple[Optional[Pin], Optional[Pin], Optional[Pin]]:
+def get_mosfet_pins(comp: Component, parts_manager: Optional[Any] = None) -> Tuple[Optional[Pin], Optional[Pin], Optional[Pin]]:
     """Returns (gate_pin, source_pin, drain_pin) for a MOSFET."""
     gate: Optional[Pin] = None
     source: Optional[Pin] = None
     drain: Optional[Pin] = None
 
+    # 1. Check explicit pin names
     for pin in comp.pins.values():
         name_up = pin.name.upper()
         if name_up in ("G", "GATE"):
@@ -45,16 +73,35 @@ def get_mosfet_pins(comp: Component) -> Tuple[Optional[Pin], Optional[Pin], Opti
             source = pin
         elif name_up in ("D", "DRAIN"):
             drain = pin
+    if gate and source and drain:
+        return gate, source, drain
 
-    # Fallback standard SOT-23 mapping (1=G, 2=S, 3=D)
-    if not gate:
+    # 2. Check PartProfile pin_map
+    if parts_manager:
+        profile = parts_manager.find_profile(lcsc_id=comp.lcsc_id, part_number=comp.value)
+        if profile and profile.pin_map:
+            for pin_num, role in profile.pin_map.items():
+                role_up = str(role).upper()
+                if role_up in ("G", "GATE"):
+                    gate = comp.get_pin(pin_num)
+                elif role_up in ("S", "SOURCE"):
+                    source = comp.get_pin(pin_num)
+                elif role_up in ("D", "DRAIN"):
+                    drain = comp.get_pin(pin_num)
+            if gate and source and drain:
+                return gate, source, drain
+
+    # 3. Check package standard mapping
+    pkg_up = comp.package.upper()
+    if "SOT-23" in pkg_up or "SOT23" in pkg_up:
+        # Standard SOT-23 MOSFET: Pin 1 = Gate, Pin 2 = Source, Pin 3 = Drain
         gate = comp.get_pin("1")
-    if not source:
         source = comp.get_pin("2")
-    if not drain:
         drain = comp.get_pin("3")
+        if gate and source and drain:
+            return gate, source, drain
 
-    return gate, source, drain
+    return None, None, None
 
 
 def _find_pull_resistor(net_name: str, target_rail: str, graph: SchematicGraph) -> Optional[Component]:
@@ -91,16 +138,16 @@ def _net_has_mcu_connection(net_name: str, graph: SchematicGraph) -> bool:
     return False
 
 
-def check_bjt(comp: Component, graph: SchematicGraph) -> CheckResult:
+def check_bjt(comp: Component, graph: SchematicGraph, parts_manager: Optional[Any] = None) -> CheckResult:
     """Checks BJT base resistor for proper switching saturation and validates emitter orientation."""
-    base, emitter, collector = get_bjt_pins(comp)
+    base, emitter, collector = get_bjt_pins(comp, parts_manager)
     if not base or not emitter or not collector:
         return CheckResult(
             ref_des=comp.ref_des,
             component_type=comp.comp_type or "BJT",
             status=CheckStatus.WARN,
-            message="Could not identify BJT Base, Emitter, and Collector pins.",
-            details={"pins": str(list(comp.pins.keys()))}
+            message=f"Could not verify BJT Base, Emitter, and Collector pins for '{comp.ref_des}' ({comp.value}, {comp.package}) from datasheet, symbol, or package standards. Manual verification required (VERIFY_PINOUT).",
+            details={"pins": str(list(comp.pins.keys())), "package": comp.package, "value": comp.value}
         )
 
     b_net = base.net
@@ -184,16 +231,16 @@ def check_bjt(comp: Component, graph: SchematicGraph) -> CheckResult:
     )
 
 
-def check_mosfet(comp: Component, graph: SchematicGraph) -> CheckResult:
+def check_mosfet(comp: Component, graph: SchematicGraph, parts_manager: Optional[Any] = None) -> CheckResult:
     """Checks MOSFET gate biasing (pull-up/pull-down) to prevent floating gates during reset/boot."""
-    gate, source, drain = get_mosfet_pins(comp)
+    gate, source, drain = get_mosfet_pins(comp, parts_manager)
     if not gate or not source or not drain:
         return CheckResult(
             ref_des=comp.ref_des,
             component_type=comp.comp_type or "MOSFET",
             status=CheckStatus.WARN,
-            message="Could not identify MOSFET Gate, Source, and Drain pins.",
-            details={"pins": str(list(comp.pins.keys()))}
+            message=f"Could not verify MOSFET Gate, Source, and Drain pins for '{comp.ref_des}' ({comp.value}, {comp.package}) from datasheet, symbol, or package standards. Manual verification required (VERIFY_PINOUT).",
+            details={"pins": str(list(comp.pins.keys())), "package": comp.package, "value": comp.value}
         )
 
     g_net = gate.net
@@ -255,14 +302,14 @@ def check_mosfet(comp: Component, graph: SchematicGraph) -> CheckResult:
             )
 
 
-def check_all_transistors(graph: SchematicGraph) -> List[CheckResult]:
+def check_all_transistors(graph: SchematicGraph, parts_manager: Optional[Any] = None) -> List[CheckResult]:
     """Runs checks on all BJTs and MOSFETs in the schematic."""
     results: List[CheckResult] = []
     for comp in graph.components.values():
         c_type = comp.comp_type.upper()
         if "MOSFET" in c_type or "MOS" in c_type:
-            results.append(check_mosfet(comp, graph))
+            results.append(check_mosfet(comp, graph, parts_manager))
         elif "BJT" in c_type or comp.ref_des.upper().startswith("Q"):
             # If Q ref_des and not classified as MOSFET, treat as BJT
-            results.append(check_bjt(comp, graph))
+            results.append(check_bjt(comp, graph, parts_manager))
     return results
