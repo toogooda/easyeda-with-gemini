@@ -33,6 +33,8 @@ class EasyEDALiveHandler(BaseHTTPRequestHandler):
                         graph = parse_protel_netlist(data["netlist_text"])
                         if "project_name" in data:
                             graph.project_name = data["project_name"]
+                        if "bom_data" in data and isinstance(data["bom_data"], dict):
+                            merge_bom_into_graph(graph, data["bom_data"])
                     else:
                         graph = parse_schematic_json(data)
                 else:
