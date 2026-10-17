@@ -123,3 +123,42 @@ def test_live_extension_netlist_text_payload():
 
     server.shutdown()
 
+
+def test_live_extension_chunked_encoding():
+    import http.client
+    if not REAL_TEL_PATH.exists():
+        pytest.skip("Real tel file not found")
+
+    server = start_live_receiver(port=8768)
+
+    with open(REAL_TEL_PATH, "r", encoding="utf-8") as f:
+        tel_text = f.read()
+
+    raw_bytes = json.dumps({
+        "project_name": "Chunked_RemoteNode",
+        "netlist_text": tel_text
+    }).encode("utf-8")
+
+    # Encode as HTTP/1.1 chunked stream
+    chunked_body = f"{len(raw_bytes):x}\r\n".encode("ascii") + raw_bytes + b"\r\n0\r\n\r\n"
+
+    conn = http.client.HTTPConnection("127.0.0.1", 8768, timeout=5)
+    conn.putrequest("POST", "/review?client=localhost")
+    conn.putheader("Content-Type", "application/json")
+    conn.putheader("Transfer-Encoding", "chunked")
+    conn.endheaders()
+    conn.send(chunked_body)
+
+    resp = conn.getresponse()
+    assert resp.status == 200
+    res_data = json.loads(resp.read().decode("utf-8"))
+    assert res_data["status"] == "success"
+    assert res_data["components_count"] > 0
+    conn.close()
+
+    live_report = audit_schematic("live")
+    assert "# Schematic Review Report: Chunked_RemoteNode" in live_report
+
+    server.shutdown()
+
+

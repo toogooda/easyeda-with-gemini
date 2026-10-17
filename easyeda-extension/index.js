@@ -25,7 +25,7 @@ var edaEsbuildExportName = (() => {
     deactivate: () => deactivate
   });
 
-  const ENDPOINT_URL = "http://127.0.0.1:8765/review";
+  const ENDPOINT_URL = "http://127.0.0.1:8765/review?client=localhost";
 
   function showDialog(message, title = "Antigravity Reviewer") {
     try {

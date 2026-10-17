@@ -21,11 +21,34 @@ _CACHE_REPORT_FILE = Path(__file__).resolve().parents[2] / "parts_cache" / ".las
 class EasyEDALiveHandler(BaseHTTPRequestHandler):
     """Receives live schematic dumps from the EasyEDA Pro extension over localhost:8765."""
 
+    def _read_body(self) -> str:
+        transfer_encoding = self.headers.get("Transfer-Encoding", "").lower()
+        if "chunked" in transfer_encoding:
+            chunks: List[bytes] = []
+            while True:
+                line = self.rfile.readline()
+                if not line:
+                    break
+                line_str = line.strip().split(b";")[0]
+                if not line_str:
+                    continue
+                chunk_len = int(line_str, 16)
+                if chunk_len == 0:
+                    self.rfile.readline()
+                    break
+                chunks.append(self.rfile.read(chunk_len))
+                self.rfile.readline()
+            return b"".join(chunks).decode("utf-8", errors="replace")
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        if content_length > 0:
+            return self.rfile.read(content_length).decode("utf-8", errors="replace")
+        return ""
+
     def do_POST(self):
         global _LAST_LIVE_GRAPH, _LAST_LIVE_REPORT
-        if self.path == "/review":
-            content_length = int(self.headers.get("Content-Length", 0))
-            post_data = self.rfile.read(content_length).decode("utf-8")
+        if self.path.startswith("/review"):
+            post_data = self._read_body()
             try:
                 try:
                     (Path(__file__).resolve().parents[2] / "parts_cache" / ".last_raw_payload.json").write_text(post_data, encoding="utf-8")
