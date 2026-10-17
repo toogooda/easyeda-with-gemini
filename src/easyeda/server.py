@@ -15,6 +15,7 @@ from .reporter import generate_schematic_report
 # Global live state
 _LAST_LIVE_GRAPH: Optional[SchematicGraph] = None
 _LAST_LIVE_REPORT: Optional[str] = None
+_CACHE_REPORT_FILE = Path(__file__).resolve().parents[2] / "parts_cache" / ".last_live_report.md"
 
 
 class EasyEDALiveHandler(BaseHTTPRequestHandler):
@@ -45,6 +46,11 @@ class EasyEDALiveHandler(BaseHTTPRequestHandler):
 
                 _LAST_LIVE_GRAPH = graph
                 _LAST_LIVE_REPORT = report
+                try:
+                    _CACHE_REPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    _CACHE_REPORT_FILE.write_text(report, encoding="utf-8")
+                except Exception:
+                    pass
 
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
@@ -102,7 +108,9 @@ def audit_schematic(schematic_path: Optional[str] = None, bom_path: Optional[str
     if not schematic_path or schematic_path.lower() == "live":
         if _LAST_LIVE_REPORT:
             return _LAST_LIVE_REPORT
-        return "No live schematic received yet from EasyEDA Pro. Use 'Audit with Antigravity' in EasyEDA Pro, or specify a file path."
+        if _CACHE_REPORT_FILE.exists():
+            return _CACHE_REPORT_FILE.read_text(encoding="utf-8")
+        return "No live schematic received yet from EasyEDA Pro. Use 'Audit Schematic with Antigravity' in EasyEDA Pro, or specify a file path."
 
     path = Path(schematic_path)
     if not path.exists():
