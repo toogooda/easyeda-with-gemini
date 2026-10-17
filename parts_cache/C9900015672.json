@@ -1,0 +1,15 @@
+{
+  "lcsc_part": "C9900015672",
+  "part_number": "1N5822",
+  "part_type": "DIODE",
+  "package": "DO-214AC",
+  "voltage_limits": {
+    "vrrm": 40.0,
+    "vf": 0.52,
+    "if_avg": 3.0
+  },
+  "pin_map": {
+    "1": "CATHODE",
+    "2": "ANODE"
+  }
+}

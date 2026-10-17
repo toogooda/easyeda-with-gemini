@@ -1,0 +1,8 @@
+{
+  "track_id": "fix-issue-11-pinout-profiles",
+  "title": "Fix: Eliminate Blind Pin Assumptions and Resolve Component Types via Part Profiles and Datasheets",
+  "status": "in_progress",
+  "github_issue": 11,
+  "branch": "fix/issue-11-pinout-profiles",
+  "created_at": "2026-10-17T23:18:00+13:00"
+}

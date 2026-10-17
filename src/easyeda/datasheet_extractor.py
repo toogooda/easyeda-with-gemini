@@ -126,6 +126,8 @@ def parse_bom(file_path: Union[str, Path]) -> Dict[str, Dict[str, str]]:
 
 def merge_bom_into_graph(graph: SchematicGraph, bom_data: Dict[str, Dict[str, str]]) -> None:
     """Enriches all components in a SchematicGraph with BOM metadata (LCSC ID, datasheet link)."""
+    from .parser import infer_component_type
+
     for ref_des, meta in bom_data.items():
         comp = graph.get_component(ref_des)
         if comp:
@@ -138,6 +140,10 @@ def merge_bom_into_graph(graph: SchematicGraph, bom_data: Dict[str, Dict[str, st
             fp = meta.get("footprint", "")
             if not comp.package and fp and fp != "[object Object]":
                 comp.package = fp
+            # Re-evaluate component type with newly acquired value and package
+            new_type = infer_component_type(comp.ref_des, comp.value, comp.lcsc_id, comp.package)
+            if new_type != "UNKNOWN" and (comp.comp_type in ("UNKNOWN", "IC") or new_type != "IC"):
+                comp.comp_type = new_type
 
 
 def download_datasheet(url: str, lcsc_id: str, dest_dir: Union[str, Path] = "datasheets") -> Optional[Path]:

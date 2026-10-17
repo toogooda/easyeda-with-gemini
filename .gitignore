@@ -36,3 +36,4 @@ datasheets/*.pdf
 # Temporary / OS
 .DS_Store
 Thumbs.db
+parts_cache/.last_raw_payload.json

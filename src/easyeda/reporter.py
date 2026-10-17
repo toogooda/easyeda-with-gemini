@@ -16,8 +16,8 @@ def generate_schematic_report(graph: SchematicGraph, parts_manager: Optional[Par
     if parts_manager is None:
         parts_manager = PartsManager()
 
-    diode_led_results = check_all_diodes_and_leds(graph)
-    transistor_results = check_all_transistors(graph)
+    diode_led_results = check_all_diodes_and_leds(graph, parts_manager)
+    transistor_results = check_all_transistors(graph, parts_manager)
 
     # IC and MCU checks
     ic_results: Dict[str, List[CheckResult]] = {}
@@ -45,7 +45,7 @@ def generate_schematic_report(graph: SchematicGraph, parts_manager: Optional[Par
             is_i2c = (
                 "I2C" in c_type
                 or any(s in val for s in ["TMP", "BMP", "BME", "AHT", "SHT", "MPU"])
-                or (profile is not None and (profile.part_type == "I2C_SENSOR" or profile.i2c_bus is not None))
+                or (profile is not None and (profile.part_type == "I2C_SENSOR" or bool(profile.i2c_addresses)))
                 or (comp.datasheet and any(s in comp.datasheet.upper() for s in ["TMP", "BMP", "BME", "AHT", "SHT", "MPU"]))
             )
             if is_i2c:
@@ -82,7 +82,7 @@ def generate_schematic_report(graph: SchematicGraph, parts_manager: Optional[Par
         comp = graph.get_component(r.ref_des)
         part_num = comp.value if comp else ""
         c_type = comp.comp_type if comp else "DIODE"
-        anode, cathode = get_diode_pins(comp) if comp else (None, None)
+        anode, cathode = get_diode_pins(comp, parts_manager) if comp else (None, None)
         a_net = anode.net if anode else "-"
         c_net = cathode.net if cathode else "-"
         res_info = r.details.get("resistor", "N/A")

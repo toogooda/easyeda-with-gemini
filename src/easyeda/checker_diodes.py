@@ -5,38 +5,67 @@ import re
 from .models import Component, Pin, SchematicGraph, CheckResult, CheckStatus, parse_resistance
 
 
-def get_diode_pins(comp: Component) -> Tuple[Optional[Pin], Optional[Pin]]:
-    """Returns (anode_pin, cathode_pin) for a diode or LED."""
+def get_diode_pins(comp: Component, parts_manager: Optional[Any] = None) -> Tuple[Optional[Pin], Optional[Pin]]:
+    """
+    Returns (anode_pin, cathode_pin) for a diode or LED.
+    Ground-truth resolution order:
+    1. Explicit pin names on symbol/component ('A', 'ANODE', '+' vs 'K', 'C', 'CATHODE', '-')
+    2. Verified PartProfile pin_map (via PartsManager lookup of LCSC ID or part number)
+    3. IPC-7351 package standards for surface mount diodes:
+       - Packages containing DO-214, SMA, SMB, SMC, SOD-123, SOD-323, SOD-523:
+         Pin 1 is CATHODE, Pin 2 is ANODE!
+    4. NEVER guess or assume. Return (None, None) if unresolved.
+    """
     anode: Optional[Pin] = None
     cathode: Optional[Pin] = None
 
-    # Check pin names first
+    # 1. Check explicit pin names
     for pin in comp.pins.values():
         name_up = pin.name.upper()
         if name_up in ("A", "ANODE", "+"):
             anode = pin
         elif name_up in ("K", "C", "CATHODE", "-"):
             cathode = pin
+    if anode and cathode:
+        return anode, cathode
 
-    # Fallback to pin numbers: 1 is Anode, 2 is Cathode
-    if not anode:
-        anode = comp.get_pin("1")
-    if not cathode:
-        cathode = comp.get_pin("2")
+    # 2. Check PartProfile pin_map
+    if parts_manager:
+        profile = parts_manager.find_profile(lcsc_id=comp.lcsc_id, part_number=comp.value)
+        if profile and profile.pin_map:
+            for pin_num, role in profile.pin_map.items():
+                role_up = str(role).upper()
+                if role_up in ("A", "ANODE", "+"):
+                    anode = comp.get_pin(pin_num)
+                elif role_up in ("K", "C", "CATHODE", "-"):
+                    cathode = comp.get_pin(pin_num)
+            if anode and cathode:
+                return anode, cathode
 
-    return anode, cathode
+    # 3. Check IPC-7351 package standards for SMD diodes
+    pkg_up = comp.package.upper()
+    smd_diode_packages = ["DO-214", "SMA", "SMB", "SMC", "SOD-123", "SOD-323", "SOD-523"]
+    if any(p in pkg_up for p in smd_diode_packages):
+        # IPC-7351 standard: Pin 1 = Cathode (band), Pin 2 = Anode
+        cathode = comp.get_pin("1")
+        anode = comp.get_pin("2")
+        if anode and cathode:
+            return anode, cathode
+
+    # 4. Strict no-guessing: do not make blind assumptions
+    return None, None
 
 
-def check_diode(comp: Component, graph: SchematicGraph) -> CheckResult:
+def check_diode(comp: Component, graph: SchematicGraph, parts_manager: Optional[Any] = None) -> CheckResult:
     """Checks power and flyback diodes for correct orientation."""
-    anode, cathode = get_diode_pins(comp)
+    anode, cathode = get_diode_pins(comp, parts_manager)
     if not anode or not cathode:
         return CheckResult(
             ref_des=comp.ref_des,
             component_type="DIODE",
             status=CheckStatus.WARN,
-            message="Could not identify Anode and Cathode pins.",
-            details={"pins": str(list(comp.pins.keys()))}
+            message=f"Could not verify Anode/Cathode pinout for '{comp.ref_des}' ({comp.value}, {comp.package}) from datasheet, symbol, or package standards. Manual verification required (VERIFY_PINOUT).",
+            details={"pins": str(list(comp.pins.keys())), "package": comp.package, "value": comp.value}
         )
 
     a_net = anode.net
@@ -79,7 +108,41 @@ def check_diode(comp: Component, graph: SchematicGraph) -> CheckResult:
     is_a_raw = any(kw in a_net.upper() for kw in raw_keywords) and not is_a_sys
     is_c_raw = any(kw in c_net.upper() for kw in raw_keywords) and not is_c_sys
 
-    if is_a_raw and (is_c_sys or is_c_power):
+    is_a_gnd = net_a_obj.is_ground if net_a_obj else False
+    is_c_gnd = net_c_obj.is_ground if net_c_obj else False
+
+    def _net_feeds_circuit(net_name: str) -> bool:
+        net = graph.get_net(net_name)
+        if not net:
+            return False
+        if net.is_power:
+            return True
+        for pin in net.pins:
+            c = graph.get_component(pin.component_ref)
+            if c and c.ref_des != comp.ref_des:
+                if c.comp_type in ("IC", "MCU") or c.ref_des.startswith("U"):
+                    return True
+                if c.comp_type == "CAPACITOR" or c.ref_des.startswith("C"):
+                    for other_p in c.pins.values():
+                        if other_p.net != net_name:
+                            on = graph.get_net(other_p.net)
+                            if on and on.is_ground:
+                                return True
+        return False
+
+    is_a_load = is_a_sys or is_a_power or _net_feeds_circuit(a_net)
+    is_c_load = is_c_sys or is_c_power or _net_feeds_circuit(c_net)
+
+    if is_a_raw and is_c_gnd:
+        return CheckResult(
+            ref_des=comp.ref_des,
+            component_type="DIODE",
+            status=CheckStatus.FAIL,
+            message=f"Dead short across power input: Diode Anode is connected to input '{a_net}' and Cathode is connected to GND!",
+            details={"anode_net": a_net, "cathode_net": c_net}
+        )
+
+    if is_a_raw and is_c_load and not is_c_gnd:
         return CheckResult(
             ref_des=comp.ref_des,
             component_type="DIODE",
@@ -87,7 +150,7 @@ def check_diode(comp: Component, graph: SchematicGraph) -> CheckResult:
             message=f"Reverse polarity protection properly oriented: Anode on input '{a_net}', Cathode on system rail '{c_net}'.",
             details={"anode_net": a_net, "cathode_net": c_net}
         )
-    elif is_c_raw and (is_a_sys or is_a_power):
+    elif is_c_raw and is_a_load and not is_a_gnd:
         return CheckResult(
             ref_des=comp.ref_des,
             component_type="DIODE",
@@ -97,8 +160,6 @@ def check_diode(comp: Component, graph: SchematicGraph) -> CheckResult:
         )
 
     # 3. Zener / TVS clamp check (Cathode to positive rail, Anode to GND)
-    is_a_gnd = net_a_obj.is_ground if net_a_obj else False
-    is_c_gnd = net_c_obj.is_ground if net_c_obj else False
     if is_a_gnd and is_c_power:
         return CheckResult(
             ref_des=comp.ref_des,
@@ -133,9 +194,9 @@ def _find_led_series_resistor(anode_net: str, cathode_net: str, graph: Schematic
 
 
 
-def check_led(comp: Component, graph: SchematicGraph) -> CheckResult:
+def check_led(comp: Component, graph: SchematicGraph, parts_manager: Optional[Any] = None) -> CheckResult:
     """Checks LED polarity and verifies the presence and value of a series current-limiting resistor."""
-    anode, cathode = get_diode_pins(comp)
+    anode, cathode = get_diode_pins(comp, parts_manager)
     if not anode or not cathode:
         return CheckResult(
             ref_des=comp.ref_des,
@@ -210,14 +271,14 @@ def check_led(comp: Component, graph: SchematicGraph) -> CheckResult:
     )
 
 
-def check_all_diodes_and_leds(graph: SchematicGraph) -> List[CheckResult]:
+def check_all_diodes_and_leds(graph: SchematicGraph, parts_manager: Optional[Any] = None) -> List[CheckResult]:
     """Runs checks on all diodes and LEDs in the schematic."""
     results: List[CheckResult] = []
     for comp in graph.components.values():
         if comp.comp_type == "LED" or comp.ref_des.upper().startswith("LED"):
-            results.append(check_led(comp, graph))
+            results.append(check_led(comp, graph, parts_manager))
         elif comp.comp_type == "DIODE" or comp.ref_des.upper().startswith("D"):
             # Exclude ESD array packs named D if they have many pins (>3)
             if len(comp.pins) <= 3:
-                results.append(check_diode(comp, graph))
+                results.append(check_diode(comp, graph, parts_manager))
     return results

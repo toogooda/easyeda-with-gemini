@@ -3,7 +3,7 @@
 ## Active Tracks
 | Track | Description | Status | Issue | Branch |
 | :--- | :--- | :--- | :--- | :--- |
-| *None* | | | | |
+| [fix-issue-11-pinout-profiles](./tracks/fix-issue-11-pinout-profiles/) | Fix: Eliminate Blind Pin Assumptions & Resolve Component Types via Part Profiles | In Progress | [#11](https://github.com/toogooda/easyeda-with-gemini/issues/11) | `fix/issue-11-pinout-profiles` |
 
 ## Archived Tracks
 | Track | Description | Status | Issue | PR |

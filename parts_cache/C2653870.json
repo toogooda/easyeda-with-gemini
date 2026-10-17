@@ -1,0 +1,43 @@
+{
+  "lcsc_part": "C2653870",
+  "part_number": "INA226AIDGST",
+  "part_type": "IC_I2C",
+  "package": "VSSOP-10",
+  "voltage_limits": {
+    "vbus_max": 36.0,
+    "vs_min": 2.7,
+    "vs_max": 5.5
+  },
+  "power_pins": [
+    {
+      "pin": "6",
+      "name": "VS",
+      "rail": "3V3"
+    }
+  ],
+  "ground_pins": [
+    "7"
+  ],
+  "pin_map": {
+    "1": "A1",
+    "2": "A0",
+    "3": "ALERT",
+    "4": "SDA",
+    "5": "SCL",
+    "6": "VS",
+    "7": "GND",
+    "8": "VBUS",
+    "9": "IN-",
+    "10": "IN+"
+  },
+  "i2c_addresses": {
+    "GND_GND": "0x40",
+    "GND_VS": "0x41",
+    "GND_SDA": "0x42",
+    "GND_SCL": "0x43",
+    "VS_GND": "0x44",
+    "VS_VS": "0x45",
+    "VS_SDA": "0x46",
+    "VS_SCL": "0x47"
+  }
+}
