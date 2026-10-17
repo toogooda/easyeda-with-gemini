@@ -27,7 +27,13 @@ class EasyEDALiveHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length).decode("utf-8")
             try:
+                try:
+                    (Path(__file__).resolve().parents[2] / "parts_cache" / ".last_raw_payload.json").write_text(post_data, encoding="utf-8")
+                except Exception:
+                    pass
                 stripped = post_data.strip()
+                if not stripped:
+                    raise ValueError("Received empty schematic payload from client")
                 if stripped.startswith("{") or stripped.startswith("[{"):
                     data = json.loads(stripped)
                     if isinstance(data, dict) and "netlist_text" in data:

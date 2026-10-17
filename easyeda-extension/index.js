@@ -62,10 +62,12 @@ export async function auditWithAntigravity() {
 
     let resp;
     if (typeof eda !== "undefined" && eda.sys_ClientUrl && typeof eda.sys_ClientUrl.request === "function") {
-      resp = await eda.sys_ClientUrl.request(ENDPOINT_URL, "POST", {
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
+      resp = await eda.sys_ClientUrl.request(
+        ENDPOINT_URL,
+        "POST",
+        { "Content-Type": "application/json" },
+        JSON.stringify(payload)
+      );
     } else {
       resp = await fetch(ENDPOINT_URL, {
         method: "POST",
