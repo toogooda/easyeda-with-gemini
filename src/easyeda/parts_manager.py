@@ -51,8 +51,10 @@ class PartsManager:
     def __init__(self, cache_dir: Optional[Path] = None):
         if cache_dir:
             self.cache_dir = Path(cache_dir)
-        else:
+        elif Path("parts_cache").exists():
             self.cache_dir = Path("parts_cache")
+        else:
+            self.cache_dir = Path(__file__).resolve().parents[2] / "parts_cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_path(self, lcsc_id: str) -> Path:

@@ -1,0 +1,69 @@
+{
+	"name": "easyeda-with-gemini",
+	"uuid": "7a3e8c145b294d819b76f38b4c91a021",
+	"displayName": "Antigravity Reviewer",
+	"description": "Live AI Schematic Reviewer connecting EasyEDA Pro to Antigravity and Gemini",
+	"version": "1.1.0",
+	"publisher": "Antigravity",
+	"engines": {
+		"eda": "^2.2.0"
+	},
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "extension-store",
+		"url": "https://github.com/toogooda/easyeda-with-gemini"
+	},
+	"categories": "Other",
+	"keywords": [
+		"Tool",
+		"AI",
+		"Schematic"
+	],
+	"images": {
+		"logo": "./images/logo.png"
+	},
+	"homepage": "https://github.com/toogooda/easyeda-with-gemini",
+	"bugs": "https://github.com/toogooda/easyeda-with-gemini/issues",
+	"activationEvents": {
+		"onStartupFinished": true,
+		"onLogged": true,
+		"onProjectOpened": true,
+		"onEditorSchematic": true,
+		"onChangeAllowExternalInteractions": "on"
+	},
+	"entry": "./dist/index",
+	"dependentExtensions": {},
+	"headerMenus": {
+		"home": [
+			{
+				"id": "antigravity_home_menu",
+				"title": "Antigravity",
+				"menuItems": [
+					{
+						"id": "antigravity_about",
+						"title": "About Antigravity Reviewer...",
+						"registerFn": "about"
+					}
+				]
+			}
+		],
+		"sch": [
+			{
+				"id": "antigravity_sch_menu",
+				"title": "Antigravity",
+				"menuItems": [
+					{
+						"id": "audit_with_antigravity",
+						"title": "Audit Schematic with Antigravity",
+						"registerFn": "auditWithAntigravity"
+					},
+					{
+						"id": "antigravity_sch_about",
+						"title": "About...",
+						"registerFn": "about"
+					}
+				]
+			}
+		]
+	}
+}
