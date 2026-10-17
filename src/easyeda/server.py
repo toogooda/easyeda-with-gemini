@@ -268,4 +268,12 @@ def run_mcp_server():
 
 
 if __name__ == "__main__":
-    run_mcp_server()
+    if "--live" in sys.argv:
+        server = start_live_receiver(port=8765)
+        print("EasyEDA Live Receiver listening on http://127.0.0.1:8765/review...")
+        try:
+            threading.Event().wait()
+        except KeyboardInterrupt:
+            server.shutdown()
+    else:
+        run_mcp_server()
