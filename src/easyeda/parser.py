@@ -194,6 +194,63 @@ def parse_protel_netlist(source: Union[str, Path]) -> SchematicGraph:
 
             graph._register_pin_in_net(pin)
 
+    # 3. Fallback: Parse Protel2 / Altium bracket [ ... ] and parenthesis ( ... ) format
+    if not graph.components and ("[" in content or "(" in content):
+        for comp_block in re.findall(r"\[\s*([\s\S]*?)\s*\]", content):
+            lines = [ln.strip() for ln in comp_block.splitlines() if ln.strip()]
+            if not lines:
+                continue
+            if lines[0].upper() == "DESIGNATOR" and len(lines) >= 2:
+                kv: Dict[str, str] = {}
+                for i in range(0, len(lines) - 1, 2):
+                    kv[lines[i].upper()] = lines[i + 1]
+                ref = kv.get("DESIGNATOR", "")
+                footprint = kv.get("FOOTPRINT", "")
+                raw_val = kv.get("PARTTYPE", "") or kv.get("VALUE", "") or kv.get("COMMENT", "")
+            else:
+                ref = lines[0]
+                footprint = lines[1] if len(lines) > 1 else ""
+                raw_val = lines[2] if len(lines) > 2 else ""
+
+            val = "" if raw_val in ("{Value}", "") else raw_val
+            if ref and re.match(r"^[A-Za-z0-9_]+$", ref):
+                comp = Component(
+                    ref_des=ref,
+                    value=val,
+                    package=footprint,
+                    comp_type=infer_component_type(ref, val)
+                )
+                graph.add_component(comp)
+
+        for net_block in re.findall(r"\(\s*([\s\S]*?)\s*\)", content):
+            lines = [ln.strip() for ln in net_block.splitlines() if ln.strip()]
+            if len(lines) < 2:
+                continue
+            net_name = lines[0].strip("'\"")
+            pins_str = " ".join(lines[1:])
+            for m in re.finditer(r"\b([A-Za-z0-9_]+)[\-\.]([A-Za-z0-9_]+)\b", pins_str):
+                ref, pin_num = m.group(1), m.group(2)
+                comp = graph.get_component(ref)
+                if not comp:
+                    comp = Component(
+                        ref_des=ref,
+                        value="",
+                        comp_type=infer_component_type(ref, "")
+                    )
+                    graph.add_component(comp)
+                pin = comp.get_pin(pin_num)
+                if not pin:
+                    pin = Pin(
+                        number=pin_num,
+                        name=pin_num,
+                        net=net_name,
+                        component_ref=ref
+                    )
+                    comp.add_pin(pin)
+                else:
+                    pin.net = net_name
+                graph._register_pin_in_net(pin)
+
     return graph
 
 

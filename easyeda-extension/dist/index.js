@@ -58,14 +58,14 @@ var edaEsbuildExportName = (() => {
     const bomMeta = {};
     if (typeof eda !== "undefined" && eda.sch_PrimitiveComponent && typeof eda.sch_PrimitiveComponent.getAll === "function") {
       try {
-        const comps = await eda.sch_PrimitiveComponent.getAll();
+        const comps = await eda.sch_PrimitiveComponent.getAll(undefined, true);
         if (Array.isArray(comps)) {
           for (const c of comps) {
             const des = typeof c.getState_Designator === "function" ? c.getState_Designator() : (c.designator || "");
             if (!des) continue;
             const val = typeof c.getState_Value === "function" ? c.getState_Value() : (c.value || c.comment || "");
             const pkg = typeof c.getState_Package === "function" ? c.getState_Package() : (c.package || c.footprint || "");
-            const lcsc = typeof c.getState_SupplierPart === "function" ? c.getState_SupplierPart() : (c.supplierPart || c.lcscPart || "");
+            const lcsc = typeof c.getState_SupplierId === "function" ? c.getState_SupplierId() : (c.supplierId || c.supplierPart || c.lcscPart || "");
             const sheet = typeof c.getState_Datasheet === "function" ? c.getState_Datasheet() : (c.datasheet || "");
             bomMeta[des] = {
               ref_des: des,
@@ -86,34 +86,60 @@ var edaEsbuildExportName = (() => {
   async function auditWithAntigravity() {
     try {
       let netlistText = null;
+      let bomCsv = null;
 
-      // 1. Try SCH_ManufactureData.getNetlistFile
+      // 1. Try SCH_ManufactureData.getNetlistFile ('Allegro' gives .tel format, fallback to 'Protel2')
       if (typeof eda !== "undefined" && eda.sch_ManufactureData && typeof eda.sch_ManufactureData.getNetlistFile === "function") {
-        try {
-          const netlistFile = await eda.sch_ManufactureData.getNetlistFile("schematic", "Protel2");
-          if (netlistFile) {
-            if (typeof netlistFile.text === "function") {
-              netlistText = await netlistFile.text();
-            } else if (typeof netlistFile === "string") {
-              netlistText = netlistFile;
+        for (const fmt of ["Allegro", "Protel2"]) {
+          try {
+            const netlistFile = await eda.sch_ManufactureData.getNetlistFile("schematic", fmt);
+            if (netlistFile) {
+              if (typeof netlistFile.text === "function") {
+                netlistText = await netlistFile.text();
+              } else if (typeof netlistFile === "string") {
+                netlistText = netlistFile;
+              }
+              if (netlistText && netlistText.length > 10) {
+                break;
+              }
             }
+          } catch (err) {
+            console.warn("getNetlistFile (" + fmt + ") fallback:", err);
           }
-        } catch (err) {
-          console.warn("getNetlistFile fallback:", err);
         }
       }
 
       // 2. Fallback to SCH_Netlist.getNetlist
       if ((!netlistText || netlistText.length < 10) && typeof eda !== "undefined" && eda.sch_Netlist && typeof eda.sch_Netlist.getNetlist === "function") {
+        for (const fmt of ["Allegro", "Protel2"]) {
+          try {
+            const res = await eda.sch_Netlist.getNetlist(fmt);
+            if (typeof res === "string" && res.length > 10) {
+              netlistText = res;
+              break;
+            } else if (res && typeof res.text === "function") {
+              netlistText = await res.text();
+              if (netlistText && netlistText.length > 10) break;
+            }
+          } catch (err) {
+            console.warn("getNetlist (" + fmt + ") fallback:", err);
+          }
+        }
+      }
+
+      // 3. Try SCH_ManufactureData.getBomFile ('csv') to get LCSC IDs and Datasheet URLs
+      if (typeof eda !== "undefined" && eda.sch_ManufactureData && typeof eda.sch_ManufactureData.getBomFile === "function") {
         try {
-          const res = await eda.sch_Netlist.getNetlist("Protel2");
-          if (typeof res === "string" && res.length > 10) {
-            netlistText = res;
-          } else if (res && typeof res.text === "function") {
-            netlistText = await res.text();
+          const bomFile = await eda.sch_ManufactureData.getBomFile("bom", "csv");
+          if (bomFile) {
+            if (typeof bomFile.text === "function") {
+              bomCsv = await bomFile.text();
+            } else if (typeof bomFile === "string") {
+              bomCsv = bomFile;
+            }
           }
         } catch (err) {
-          console.warn("getNetlist fallback:", err);
+          console.warn("getBomFile fallback:", err);
         }
       }
 
@@ -124,6 +150,7 @@ var edaEsbuildExportName = (() => {
         payload = {
           project_name: "EasyEDA_Active_Design",
           netlist_text: netlistText,
+          bom_csv: bomCsv || "",
           bom_data: bomMeta
         };
       } else if (Object.keys(bomMeta).length > 0) {
@@ -148,24 +175,31 @@ var edaEsbuildExportName = (() => {
         return;
       }
 
+      const bodyString = JSON.stringify(payload);
       let resp;
       if (typeof eda !== "undefined" && eda.sys_ClientUrl && typeof eda.sys_ClientUrl.request === "function") {
         resp = await eda.sys_ClientUrl.request(
           ENDPOINT_URL,
           "POST",
-          { "Content-Type": "application/json" },
-          JSON.stringify(payload)
+          bodyString,
+          { headers: { "Content-Type": "application/json" } }
         );
       } else {
         resp = await fetch(ENDPOINT_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: bodyString
         });
       }
 
       if (resp && resp.status && resp.status >= 400) {
-        throw new Error("Local MCP server returned HTTP " + resp.status);
+        let errDetail = "HTTP " + resp.status;
+        try {
+          if (typeof resp.text === "function") {
+            errDetail += " - " + (await resp.text());
+          }
+        } catch (e) {}
+        throw new Error("Local MCP server returned " + errDetail);
       }
 
       let data = {};

@@ -40,18 +40,34 @@ def _parse_xlsx_bom(file_path: Path) -> List[List[str]]:
 
 
 def parse_bom(file_path: Union[str, Path]) -> Dict[str, Dict[str, str]]:
-    """Parses an EasyEDA BOM (Excel .xlsx or CSV) into a per-designator metadata dictionary."""
-    path = Path(file_path)
-    if not path.exists():
-        raise FileNotFoundError(f"BOM file not found: {path}")
-
+    """Parses an EasyEDA BOM (Excel .xlsx, CSV file, or raw CSV/TSV text) into a per-designator metadata dictionary."""
     rows: List[List[str]] = []
-    if path.suffix.lower() == ".xlsx":
-        rows = _parse_xlsx_bom(path)
+    is_file = False
+    path = Path()
+    try:
+        if isinstance(file_path, Path) or (isinstance(file_path, str) and "\n" not in file_path and len(file_path) < 260):
+            path = Path(file_path)
+            is_file = path.is_file()
+    except Exception:
+        is_file = False
+
+    if is_file:
+        if path.suffix.lower() == ".xlsx":
+            rows = _parse_xlsx_bom(path)
+        else:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+                lines = [ln for ln in content.splitlines() if ln.strip()]
+                if lines:
+                    delim = "\t" if "\t" in lines[0] else ","
+                    rows = list(csv.reader(lines, delimiter=delim))
+    elif isinstance(file_path, str) and ("\n" in file_path or "\t" in file_path):
+        lines = [ln for ln in file_path.splitlines() if ln.strip()]
+        if lines:
+            delim = "\t" if "\t" in lines[0] else ","
+            rows = list(csv.reader(lines, delimiter=delim))
     else:
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            reader = csv.reader(f)
-            rows = list(reader)
+        raise FileNotFoundError(f"BOM file not found: {file_path}")
 
     if not rows:
         return {}

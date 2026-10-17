@@ -40,6 +40,11 @@ class EasyEDALiveHandler(BaseHTTPRequestHandler):
                         graph = parse_protel_netlist(data["netlist_text"])
                         if "project_name" in data:
                             graph.project_name = data["project_name"]
+                        if "bom_csv" in data and isinstance(data["bom_csv"], str) and data["bom_csv"].strip():
+                            try:
+                                merge_bom_into_graph(graph, parse_bom(data["bom_csv"]))
+                            except Exception:
+                                pass
                         if "bom_data" in data and isinstance(data["bom_data"], dict):
                             merge_bom_into_graph(graph, data["bom_data"])
                     else:
