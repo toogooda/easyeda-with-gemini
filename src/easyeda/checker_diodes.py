@@ -271,14 +271,81 @@ def check_led(comp: Component, graph: SchematicGraph, parts_manager: Optional[An
     )
 
 
+def check_tvs_array(comp: Component, graph: SchematicGraph, parts_manager: Optional[Any] = None) -> CheckResult:
+    """Checks multi-channel TVS / ESD diode protection arrays (e.g. SP720, USBLC6)."""
+    profile = parts_manager.find_profile(lcsc_id=comp.lcsc_id or "", part_number=comp.value or "") if parts_manager else None
+
+    # Identify ground and positive clamp pins
+    gnd_pins: List[Pin] = []
+    v_plus_pins: List[Pin] = []
+    protected_pins: List[Pin] = []
+
+    for pin in comp.pins.values():
+        net = graph.get_net(pin.net) if pin.net else None
+        p_name = pin.name.upper() if pin.name else ""
+        if profile and profile.pin_map:
+            role = str(profile.pin_map.get(str(pin.number), "")).upper()
+            if role in ("GND", "V-", "VSS", "GROUND"):
+                gnd_pins.append(pin)
+                continue
+            elif role in ("V+", "VCC", "VDD", "VP"):
+                v_plus_pins.append(pin)
+                continue
+
+        if (net and net.is_ground) or p_name in ("GND", "V-", "VSS"):
+            gnd_pins.append(pin)
+        elif (net and net.is_power) or p_name in ("V+", "VCC", "VDD", "VP"):
+            v_plus_pins.append(pin)
+        else:
+            protected_pins.append(pin)
+
+    # If ground pin missing
+    if not gnd_pins:
+        return CheckResult(
+            ref_des=comp.ref_des,
+            component_type="TVS_ARRAY",
+            status=CheckStatus.WARN,
+            message=f"TVS diode array '{comp.ref_des}' ({comp.value or comp.package}) has no verified ground pin! ESD transients cannot be safely shunted to ground.",
+            details={"pins": str(list(comp.pins.keys())), "type": "TVS_ARRAY"}
+        )
+
+    gnd_pin = gnd_pins[0]
+    gnd_net = gnd_pin.net
+    v_plus_net = v_plus_pins[0].net if v_plus_pins else "Unconnected"
+    protected_nets = sorted(list(set(p.net for p in protected_pins if p.net and p.net != gnd_net and p.net != v_plus_net)))
+
+    status = CheckStatus.PASS
+    msg = f"Multi-channel TVS / ESD array active: Ground return on '{gnd_net}'"
+    if v_plus_pins:
+        msg += f", V+ clamp on '{v_plus_net}'"
+    msg += f", protecting {len(protected_nets)} signal line(s): {', '.join(protected_nets[:8])}"
+    if len(protected_nets) > 8:
+        msg += f", +{len(protected_nets) - 8} more"
+
+    return CheckResult(
+        ref_des=comp.ref_des,
+        component_type="TVS_ARRAY",
+        status=status,
+        message=msg,
+        details={
+            "gnd_net": gnd_net,
+            "v_plus_net": v_plus_net,
+            "protected_nets": ", ".join(protected_nets),
+            "channels": len(protected_nets)
+        }
+    )
+
+
 def check_all_diodes_and_leds(graph: SchematicGraph, parts_manager: Optional[Any] = None) -> List[CheckResult]:
-    """Runs checks on all diodes and LEDs in the schematic."""
+    """Runs checks on all diodes, LEDs, and TVS arrays in the schematic."""
     results: List[CheckResult] = []
     for comp in graph.components.values():
         if comp.comp_type == "LED" or comp.ref_des.upper().startswith("LED"):
             results.append(check_led(comp, graph, parts_manager))
-        elif comp.comp_type == "DIODE" or comp.ref_des.upper().startswith("D"):
-            # Exclude ESD array packs named D if they have many pins (>3)
-            if len(comp.pins) <= 3:
+        elif comp.comp_type in ("DIODE", "TVS_ARRAY") or comp.ref_des.upper().startswith("D"):
+            if len(comp.pins) > 3:
+                results.append(check_tvs_array(comp, graph, parts_manager))
+            else:
                 results.append(check_diode(comp, graph, parts_manager))
     return results
+

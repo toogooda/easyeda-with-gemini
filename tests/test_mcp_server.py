@@ -6,6 +6,8 @@ import pytest
 from src.easyeda.server import (
     audit_schematic,
     get_part_profile,
+    save_part_profile,
+    get_datasheet,
     list_cached_parts,
     start_live_receiver
 )
@@ -20,12 +22,22 @@ def test_audit_schematic_fixture():
     assert isinstance(report, str)
     assert "# Schematic Review Report: TestBench_Board" in report
 
+    # Check provenance metadata
+    assert "**Source:**" in report
+    assert "**Components:**" in report
+    assert "**Nets:**" in report
+
+    # Check that Summary of Issues is upfront (before Section 1)
+    summary_pos = report.index("## Summary of Issues")
+    sec1_pos = report.index("## 1. Diodes & LEDs")
+    assert summary_pos < sec1_pos, "Summary of Issues must appear before Section 1"
+
     # Check section headers
     assert "## 1. Diodes & LEDs" in report
     assert "## 2. Transistors & FETs" in report
     assert "## 3. ICs & Peripherals" in report
     assert "## 4. Microcontrollers & Bus Pin Mapping" in report
-    assert "## Summary of Issues" in report
+    assert "#### Bus Peripheral Pin Mapping" in report
 
     # Check critical findings caught
     assert "🔴 **CRITICAL" in report
@@ -48,9 +60,21 @@ def test_audit_schematic_real_project():
 
     report = audit_schematic(str(REAL_TEL_PATH), str(REAL_BOM_PATH))
     assert isinstance(report, str)
+    assert "**Source:**" in report
+    assert "**BOM:**" in report
+    assert "## Summary of Issues" in report
+    assert report.index("## Summary of Issues") < report.index("## 1. Diodes & LEDs")
     assert "## 1. Diodes & LEDs" in report
     assert "## 2. Transistors & FETs" in report
     assert "## 4. Microcontrollers & Bus Pin Mapping" in report
+
+    # Verify bus peripheral pin mapping on real project
+    assert "#### Bus Peripheral Pin Mapping" in report
+    assert "| SPI |" in report
+    assert "| I2C |" in report
+    assert "| UART |" in report
+    assert "LORASCK" in report
+    assert "U2 (Ra-01SCH-P)" in report
 
     # Verify real crystals detected
     assert "8MHz" in report
@@ -206,6 +230,49 @@ def test_antigravity_initiated_on_demand_pull():
 
     assert report is not None
     assert "# Schematic Review Report: OnDemand_Pulled_Board" in report
+
+
+def test_save_part_profile_and_reload():
+    test_data = {
+        "lcsc_part": "C999999",
+        "part_number": "TEST_LDO_3V3",
+        "part_type": "REGULATOR",
+        "voltage_limits": {"vout": 3.3},
+        "power_pins": [{"pin": "2", "name": "VOUT", "decoupling": "10uF"}],
+        "ground_pins": ["1"]
+    }
+    res = save_part_profile(test_data)
+    assert res["status"] == "success"
+    assert res["lcsc_id"] == "C999999"
+
+    loaded = get_part_profile("C999999")
+    assert loaded["part_number"] == "TEST_LDO_3V3"
+    assert loaded["part_type"] == "REGULATOR"
+
+    # Clean up test file from parts_cache
+    p_file = Path("parts_cache/C999999.json")
+    if p_file.exists():
+        p_file.unlink()
+
+
+def test_zero_suppression_includes_d1_u4_u6_and_pin_tables():
+    if not REAL_TEL_PATH.exists() or not REAL_BOM_PATH.exists():
+        pytest.skip("Real project files not found")
+
+    report = audit_schematic(str(REAL_TEL_PATH), str(REAL_BOM_PATH))
+    # D1 TVS Array included in Section 1
+    assert "D1" in report
+    assert "SP720ABTG" in report
+    assert "TVS_ARRAY" in report
+
+    # U4 and U6 included in Section 3 with pin tables and decoupling
+    assert "### U4: HT7350-1" in report
+    assert "### U6: HT7333" in report
+    assert "Power pin VIN" in report
+    assert "Power pin VOUT" in report
+    assert "Connected Net" in report
+    assert "Capacitance to GND" in report
+
 
 
 

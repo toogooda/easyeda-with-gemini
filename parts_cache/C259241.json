@@ -1,0 +1,30 @@
+{
+  "lcsc_part": "C259241",
+  "part_number": "HT7333",
+  "part_type": "REGULATOR",
+  "description": "3.3V 250mA TinyPower Low Power LDO Voltage Regulator",
+  "voltage_limits": {
+    "vin_max": 30.0,
+    "vout": 3.3
+  },
+  "power_pins": [
+    {
+      "pin": "2",
+      "name": "VIN",
+      "decoupling": "10uF"
+    },
+    {
+      "pin": "3",
+      "name": "VOUT",
+      "decoupling": "10uF"
+    }
+  ],
+  "ground_pins": [
+    "1"
+  ],
+  "pin_map": {
+    "1": "GND",
+    "2": "VIN",
+    "3": "VOUT"
+  }
+}

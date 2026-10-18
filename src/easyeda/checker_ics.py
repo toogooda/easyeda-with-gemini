@@ -26,7 +26,7 @@ def _find_power_pullup(net_name: str, graph: SchematicGraph) -> Optional[Compone
 def check_ic_decoupling(comp: Component, graph: SchematicGraph, parts_manager: PartsManager) -> List[CheckResult]:
     """Checks that IC power pins have matching decoupling capacitors per cached datasheet profile."""
     results: List[CheckResult] = []
-    profile = parts_manager.get_profile(comp.lcsc_id) if comp.lcsc_id else None
+    profile = parts_manager.find_profile(lcsc_id=comp.lcsc_id or "", part_number=comp.value or "") if parts_manager else None
 
     if not profile or not profile.power_pins:
         # Fallback heuristic: check any pin with VDD/VCC in name

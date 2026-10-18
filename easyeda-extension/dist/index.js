@@ -235,10 +235,24 @@ var edaEsbuildExportName = (() => {
       let resp;
       if (typeof eda !== "undefined" && eda.sys_ClientUrl && typeof eda.sys_ClientUrl.request === "function") {
         resp = await eda.sys_ClientUrl.request(POLL_URL, "GET");
+      } else if (typeof fetch === "function") {
+        resp = await fetch(POLL_URL);
       }
-      if (resp && resp.ok) {
-        const data = await resp.json();
-        if (data && data.command === "pull_schematic") {
+      if (resp) {
+        let data = null;
+        if (typeof resp.json === "function") {
+          data = await resp.json();
+        } else if (typeof resp.text === "function") {
+          try { data = JSON.parse(await resp.text()); } catch (e) {}
+        } else if (typeof resp === "string") {
+          try { data = JSON.parse(resp); } catch (e) {}
+        } else if (typeof resp === "object") {
+          data = resp.data || resp.result || resp;
+          if (typeof data === "string") {
+            try { data = JSON.parse(data); } catch (e) {}
+          }
+        }
+        if (data && (data.command === "pull_schematic" || (typeof data === "string" && data.indexOf("pull_schematic") !== -1))) {
           await captureAndSendSchematic(true);
         }
       }

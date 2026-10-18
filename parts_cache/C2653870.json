@@ -1,18 +1,17 @@
 {
   "lcsc_part": "C2653870",
-  "part_number": "INA226AIDGST",
-  "part_type": "IC_I2C",
-  "package": "VSSOP-10",
+  "part_number": "INA226AIDGSR",
+  "part_type": "SENSOR",
+  "description": "High-Side or Low-Side Current and Power Monitor with I2C Compatible Interface",
   "voltage_limits": {
-    "vbus_max": 36.0,
-    "vs_min": 2.7,
-    "vs_max": 5.5
+    "vin_max": 36.0,
+    "vout": null
   },
   "power_pins": [
     {
       "pin": "6",
       "name": "VS",
-      "rail": "3V3"
+      "decoupling": "100nF"
     }
   ],
   "ground_pins": [
@@ -27,10 +26,13 @@
     "6": "VS",
     "7": "GND",
     "8": "VBUS",
-    "9": "IN-",
-    "10": "IN+"
+    "9": "VIN-",
+    "10": "VIN+"
   },
-  "address_pins": ["A1", "A0"],
+  "address_pins": [
+    "A1",
+    "A0"
+  ],
   "i2c_addresses": {
     "GND_GND": "0x40",
     "GND_VS": "0x41",

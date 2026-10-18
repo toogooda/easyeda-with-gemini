@@ -71,9 +71,11 @@ def parse_schematic_json(source: Union[str, Path, dict]) -> SchematicGraph:
     else:
         data = source
 
+    src_path = str(source) if isinstance(source, (str, Path)) and Path(str(source)).exists() else ""
     graph = SchematicGraph(
         project_name=data.get("project_name", "Untitled"),
-        version=data.get("version", "1.0")
+        version=data.get("version", "1.0"),
+        source_path=src_path
     )
 
     for comp_data in data.get("components", []):
@@ -137,7 +139,9 @@ def parse_protel_netlist(source: Union[str, Path]) -> SchematicGraph:
     else:
         content = str(source)
 
-    graph = SchematicGraph(project_name="Exported_Netlist", version="1.0")
+    src_path = str(source) if isinstance(source, (str, Path)) and Path(str(source)).exists() else ""
+    proj_name = Path(src_path).stem if src_path else "Exported_Netlist"
+    graph = SchematicGraph(project_name=proj_name, version="1.0", source_path=src_path)
 
     # Split into sections
     sections: Dict[str, str] = {}
