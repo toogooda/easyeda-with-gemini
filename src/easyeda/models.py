@@ -167,6 +167,8 @@ class Net:
 class SchematicGraph:
     project_name: str = ""
     version: str = "1.0"
+    source_path: str = ""
+    bom_path: str = ""
     components: Dict[str, Component] = field(default_factory=dict)
     nets: Dict[str, Net] = field(default_factory=dict)
 

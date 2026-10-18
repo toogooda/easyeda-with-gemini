@@ -1,0 +1,37 @@
+{
+  "lcsc_part": "C41368034",
+  "part_number": "Ra-01SCH-P",
+  "part_type": "TRANSCEIVER",
+  "description": "SX1262 LoRa Wireless Transceiver Module with PA/LNA",
+  "voltage_limits": {
+    "vin_max": 3.6,
+    "vout": null
+  },
+  "power_pins": [
+    {
+      "pin": "3",
+      "name": "VCC",
+      "decoupling": "100nF"
+    }
+  ],
+  "ground_pins": [
+    "2",
+    "9",
+    "16",
+    "17"
+  ],
+  "pin_map": {
+    "2": "GND",
+    "3": "VCC",
+    "4": "RESET",
+    "6": "DIO1",
+    "9": "GND",
+    "10": "BUSY",
+    "12": "SCK",
+    "13": "MISO",
+    "14": "MOSI",
+    "15": "NSS",
+    "16": "GND",
+    "17": "GND"
+  }
+}

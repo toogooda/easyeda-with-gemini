@@ -223,6 +223,11 @@ def test_i2c_address_conflict_detection():
     r_scl.add_pin(Pin("2", "2", "SCL"))
     graph.add_component(r_scl)
 
+    c1 = Component(ref_des="C1", value="100nF", comp_type="CAPACITOR")
+    c1.add_pin(Pin("1", "1", "3V3"))
+    c1.add_pin(Pin("2", "2", "GND"))
+    graph.add_component(c1)
+
     report = generate_schematic_report(graph, pm)
     assert "I2C Address Collision" in report
     assert "CRITICAL (1)" in report

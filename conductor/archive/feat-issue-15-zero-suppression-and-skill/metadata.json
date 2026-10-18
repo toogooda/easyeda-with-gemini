@@ -1,0 +1,9 @@
+{
+  "track_id": "feat-issue-15-zero-suppression-and-skill",
+  "title": "Zero-Suppression Component Reporting, JIT Profile Caching Tool, and Standalone Skill Context",
+  "status": "completed",
+  "github_issue": 15,
+  "branch": "feat/issue-15-zero-suppression-and-skill",
+  "created_at": "2026-10-18T11:14:00+13:00",
+  "completed_at": "2026-10-18T15:05:00+13:00"
+}

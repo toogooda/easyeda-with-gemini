@@ -6,7 +6,8 @@
 ## Archived Tracks
 | Track | Description | Status | Issue | PR |
 | :--- | :--- | :--- | :--- | :--- |
-| [feat-issue-13-i2c-address-resolution](./archive/feat-issue-13-i2c-address-resolution/) | Universal I2C Device Address Resolution for Arbitrary Strapping Configurations | Completed | [#13](https://github.com/toogooda/easyeda-with-gemini/issues/13) | Pending PR |
+| [feat-issue-15-zero-suppression-and-skill](./archive/feat-issue-15-zero-suppression-and-skill/) | Zero-Suppression Component Reporting, JIT Profile Caching Tool, and Standalone Skill Context | Completed | [#15](https://github.com/toogooda/easyeda-with-gemini/issues/15) | [#16](https://github.com/toogooda/easyeda-with-gemini/pull/16) |
+| [feat-issue-13-i2c-address-resolution](./archive/feat-issue-13-i2c-address-resolution/) | Universal I2C Device Address Resolution for Arbitrary Strapping Configurations | Completed | [#13](https://github.com/toogooda/easyeda-with-gemini/issues/13) | [#14](https://github.com/toogooda/easyeda-with-gemini/pull/14) |
 | [fix-issue-11-pinout-profiles](./archive/fix-issue-11-pinout-profiles/) | Fix: Eliminate Blind Pin Assumptions & Resolve Component Types via Part Profiles | Completed | [#11](https://github.com/toogooda/easyeda-with-gemini/issues/11) | [#12](https://github.com/toogooda/easyeda-with-gemini/pull/12) |
 | [phase-5-mcp-skill](./archive/phase-5-mcp-skill/) | Phase 5: MCP Server, Live Extension & Antigravity Skill | Completed | [#9](https://github.com/toogooda/easyeda-with-gemini/issues/9) | [#10](https://github.com/toogooda/easyeda-with-gemini/pull/10) |
 | [phase-4-mcu-ic-checkers](./archive/phase-4-mcu-ic-checkers/) | Phase 4: IC, I2C & Microcontroller Checker Engine | Completed | [#7](https://github.com/toogooda/easyeda-with-gemini/issues/7) | [#8](https://github.com/toogooda/easyeda-with-gemini/pull/8) |

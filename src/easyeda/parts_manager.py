@@ -104,7 +104,9 @@ class PartsManager:
                 continue
         return None
 
-    def save_profile(self, profile: PartProfile) -> Path:
+    def save_profile(self, profile: Union[PartProfile, Dict[str, Any]]) -> Path:
+        if isinstance(profile, dict):
+            profile = PartProfile.from_dict(profile)
         path = self._get_path(profile.lcsc_part)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(profile.to_dict(), f, indent=2)
