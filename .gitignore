@@ -37,3 +37,5 @@ datasheets/*.pdf
 .DS_Store
 Thumbs.db
 parts_cache/.last_raw_payload.json
+parts_cache/.stale_raw_payload.json
+parts_cache/.stale_live_report.md

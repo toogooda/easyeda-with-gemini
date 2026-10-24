@@ -19,6 +19,29 @@ _LAST_LIVE_GRAPH: Optional[SchematicGraph] = None
 _LAST_LIVE_REPORT: Optional[str] = None
 _CACHE_REPORT_FILE = Path(__file__).resolve().parents[2] / "parts_cache" / ".last_live_report.md"
 _CACHE_PAYLOAD_FILE = Path(__file__).resolve().parents[2] / "parts_cache" / ".last_raw_payload.json"
+_STALE_REPORT_FILE = Path(__file__).resolve().parents[2] / "parts_cache" / ".stale_live_report.md"
+_STALE_PAYLOAD_FILE = Path(__file__).resolve().parents[2] / "parts_cache" / ".stale_raw_payload.json"
+
+
+def archive_stale_payload() -> None:
+    """
+    Archives pre-existing cached payload and report files from prior sessions
+    to .stale_raw_payload.json and .stale_live_report.md, resetting in-memory session graph.
+    """
+    global _LAST_LIVE_GRAPH, _LAST_LIVE_REPORT
+    _LAST_LIVE_GRAPH = None
+    _LAST_LIVE_REPORT = None
+    try:
+        if _CACHE_PAYLOAD_FILE.exists():
+            _CACHE_PAYLOAD_FILE.replace(_STALE_PAYLOAD_FILE)
+    except Exception:
+        pass
+    try:
+        if _CACHE_REPORT_FILE.exists():
+            _CACHE_REPORT_FILE.replace(_STALE_REPORT_FILE)
+    except Exception:
+        pass
+
 
 _PULL_LOCK = threading.Lock()
 _PULL_REQUESTED: bool = False
@@ -259,6 +282,7 @@ class EasyEDALiveHandler(BaseHTTPRequestHandler):
 def start_live_receiver(port: int = 8765) -> HTTPServer:
     """Starts the background threaded HTTP receiver for EasyEDA Pro live extensions."""
     global _ACTIVE_SERVER_PORT
+    archive_stale_payload()
     server = ThreadingHTTPServer(("127.0.0.1", port), EasyEDALiveHandler)
     _ACTIVE_SERVER_PORT = port
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -283,7 +307,7 @@ def audit_schematic(schematic_path: Optional[str] = None, bom_path: Optional[str
         report = reevaluate_live_report(pm)
         if report:
             return report
-        return "No live schematic received yet from EasyEDA Pro. Make sure EasyEDA Pro is open with the Antigravity extension enabled, or specify a file path."
+        return "No live schematic received yet from EasyEDA Pro in this session. (Previous session data has been archived to '.stale_raw_payload.json'). Make sure EasyEDA Pro is open with the Antigravity extension enabled, or specify a file path."
 
     path = Path(schematic_path)
     if not path.exists():

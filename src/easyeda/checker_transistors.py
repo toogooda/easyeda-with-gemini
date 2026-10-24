@@ -218,8 +218,8 @@ def check_bjt(comp: Component, graph: SchematicGraph, parts_manager: Optional[An
             ref_des=comp.ref_des,
             component_type="BJT_NPN" if is_npn else "BJT_PNP",
             status=CheckStatus.PASS,
-            message=f"Base driven through saturation resistor {series_resistor.ref_des} ({series_resistor.value}). Emitter properly oriented on '{e_net}'.",
-            details={"resistor": series_resistor.ref_des, "value": series_resistor.value, "emitter": e_net}
+            message=f"Base driven through series resistor {series_resistor.ref_des} ({series_resistor.value}).",
+            details={"resistor": series_resistor.ref_des, "value": series_resistor.value, "base": b_net, "emitter": e_net, "collector": c_net}
         )
 
     return CheckResult(

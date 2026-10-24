@@ -6,6 +6,7 @@
 ## Archived Tracks
 | Track | Description | Status | Issue | PR |
 | :--- | :--- | :--- | :--- | :--- |
+| [feat-issue-17-zero-trust-telemetry-and-stale-session](./archive/feat-issue-17-zero-trust-telemetry-and-stale-session/) | Zero-Trust Engineering Review Skill, Pure Circuit Telemetry, and Stale Session Payload Lifecycle | Completed | [#17](https://github.com/toogooda/easyeda-with-gemini/issues/17) | [#18](https://github.com/toogooda/easyeda-with-gemini/pull/18) |
 | [feat-issue-15-zero-suppression-and-skill](./archive/feat-issue-15-zero-suppression-and-skill/) | Zero-Suppression Component Reporting, JIT Profile Caching Tool, and Standalone Skill Context | Completed | [#15](https://github.com/toogooda/easyeda-with-gemini/issues/15) | [#16](https://github.com/toogooda/easyeda-with-gemini/pull/16) |
 | [feat-issue-13-i2c-address-resolution](./archive/feat-issue-13-i2c-address-resolution/) | Universal I2C Device Address Resolution for Arbitrary Strapping Configurations | Completed | [#13](https://github.com/toogooda/easyeda-with-gemini/issues/13) | [#14](https://github.com/toogooda/easyeda-with-gemini/pull/14) |
 | [fix-issue-11-pinout-profiles](./archive/fix-issue-11-pinout-profiles/) | Fix: Eliminate Blind Pin Assumptions & Resolve Component Types via Part Profiles | Completed | [#11](https://github.com/toogooda/easyeda-with-gemini/issues/11) | [#12](https://github.com/toogooda/easyeda-with-gemini/pull/12) |

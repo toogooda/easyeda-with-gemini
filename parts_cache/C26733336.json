@@ -2,14 +2,44 @@
   "lcsc_part": "C26733336",
   "part_number": "STM32U073C8T6",
   "part_type": "MCU",
-  "voltage_limits": { "min": 1.71, "max": 3.6, "typical": 3.3 },
+  "voltage_limits": {
+    "min": 1.71,
+    "max": 3.6,
+    "typical": 3.3
+  },
   "power_pins": [
-    { "pin": "9", "name": "VDDA", "rail": "3.3V", "decoupling": "10nF + 1uF", "notes": "Analog power" },
-    { "pin": "24", "name": "VDD_1", "rail": "3.3V", "decoupling": "100nF" },
-    { "pin": "36", "name": "VDD_2", "rail": "3.3V", "decoupling": "100nF" },
-    { "pin": "48", "name": "VDD_3", "rail": "3.3V", "decoupling": "100nF" }
+    {
+      "pin": "9",
+      "name": "VDDA",
+      "rail": "3.3V",
+      "decoupling": "10nF + 1uF",
+      "notes": "Analog power"
+    },
+    {
+      "pin": "24",
+      "name": "VDD_1",
+      "rail": "3.3V",
+      "decoupling": "100nF"
+    },
+    {
+      "pin": "36",
+      "name": "VDD_2",
+      "rail": "3.3V",
+      "decoupling": "100nF"
+    },
+    {
+      "pin": "48",
+      "name": "VDD_3",
+      "rail": "3.3V",
+      "decoupling": "100nF"
+    }
   ],
-  "ground_pins": ["8", "23", "35", "47"],
+  "ground_pins": [
+    "8",
+    "23",
+    "35",
+    "47"
+  ],
   "crystals": {
     "hse": {
       "in": "5",
@@ -28,28 +58,58 @@
       "required": false
     }
   },
+  "boot_strapping": [
+    {
+      "pin": "44",
+      "name": "BOOT0",
+      "normal_run_state": "GND",
+      "recommendation": "10k pull-down"
+    }
+  ],
+  "peripherals": {
+    "USART1": {
+      "tx": [
+        "PA9",
+        "PB6",
+        "30"
+      ],
+      "rx": [
+        "PA10",
+        "PB7",
+        "31"
+      ]
+    },
+    "USART2": {
+      "tx": [
+        "PA2",
+        "12"
+      ],
+      "rx": [
+        "PA3",
+        "13"
+      ]
+    },
+    "I2C1": {
+      "scl": [
+        "PB6",
+        "PB8",
+        "42"
+      ],
+      "sda": [
+        "PB7",
+        "PB9",
+        "43"
+      ],
+      "pullup_required": true
+    }
+  },
   "reset_pin": {
     "pin": "7",
     "name": "NRST",
     "active": "LOW",
-    "recommended": "10k pull-up + 100nF"
-  },
-  "boot_strapping": [
-    { "pin": "44", "name": "BOOT0", "normal_run_state": "GND", "recommendation": "10k pull-down" }
-  ],
-  "peripherals": {
-    "USART1": {
-      "tx": ["PA9", "PB6", "30"],
-      "rx": ["PA10", "PB7", "31"]
-    },
-    "USART2": {
-      "tx": ["PA2", "12"],
-      "rx": ["PA3", "13"]
-    },
-    "I2C1": {
-      "scl": ["PB6", "PB8", "42"],
-      "sda": ["PB7", "PB9", "43"],
-      "pullup_required": true
-    }
+    "recommended": "100nF to GND",
+    "internal_pullup": "40k\u03a9 integrated",
+    "external_pullup_required": false,
+    "notes": "Per ST AN5838: Integrated 40k\u03a9 pull-up and glitch filter; external pull-up resistor is not required."
   }
 }

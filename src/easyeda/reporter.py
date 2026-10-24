@@ -206,50 +206,77 @@ def generate_schematic_report(graph: SchematicGraph, parts_manager: Optional[Par
     md.append(f"* 🟢 **INFO & PASS ({len(pass_items)} checks passed):**")
     if i2c_entries:
         md.append(f"  * Detected I2C Devices: {', '.join(i2c_entries)}")
+
+    md.append("")
+    md.append("> [!IMPORTANT]")
+    md.append("> **Senior Engineering Review Required:** The tables below present raw pinout and netlist telemetry extracted from the schematic. Reviewing AI agents must cross-reference physical pin assignments against the Zero-Trust Engineering Review Checklist in `SKILL.md` (verifying BJT/FET power and load orientations, diode polarities, ballast resistors, and MCU pin alternate functions) to author the final engineering critique.")
     md.append("")
     md.append("---")
     md.append("")
 
-    # 1. Diodes & LEDs
-    md.append("## 1. Diodes & LEDs")
-    md.append("| Designator | Part Number | Type | Anode Net | Cathode Net | Resistor | Status | Notes |")
-    md.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
+    # 1. Diodes & LEDs (Polarity & Ballast Telemetry)
+    md.append("## 1. Diodes & LEDs (Polarity & Ballast Telemetry)")
+    md.append("| Designator | Part Number | Package | Type | Anode (Pin & Net) | Cathode (Pin & Net) | Series Resistor | Status | Notes |")
+    md.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
 
     for r in diode_led_results:
         comp = graph.get_component(r.ref_des)
         part_num = comp.value if comp else ""
+        pkg = comp.package if (comp and comp.package) else "-"
         c_type = r.component_type or (comp.comp_type if comp else "DIODE")
         if c_type == "TVS_ARRAY":
-            a_net = r.details.get("gnd_net", "GND")
-            c_net = r.details.get("v_plus_net", "-")
+            a_net = f"GND (`{r.details.get('gnd_net', 'GND')}`)"
+            c_net = f"V+ (`{r.details.get('v_plus_net', '-')}`)"
             res_info = "N/A"
         else:
             anode, cathode = get_diode_pins(comp, parts_manager) if comp else (None, None)
-            a_net = anode.net if anode else "-"
-            c_net = cathode.net if cathode else "-"
-            res_info = r.details.get("resistor", "N/A")
-            if res_info != "N/A" and "value" in r.details:
+            a_net = f"Pin {anode.number} (`{anode.net}`)" if anode else "-"
+            c_net = f"Pin {cathode.number} (`{cathode.net}`)" if cathode else "-"
+            res_info = r.details.get("resistor", "None")
+            if res_info != "None" and "value" in r.details:
                 res_info += f" ({r.details['value']})"
-        md.append(f"| {r.ref_des} | {part_num} | {c_type} | {a_net} | {c_net} | {res_info} | {r.badge} | {r.message} |")
+        md.append(f"| {r.ref_des} | {part_num} | {pkg} | {c_type} | {a_net} | {c_net} | {res_info} | {r.badge} | {r.message} |")
     md.append("")
 
-    # 2. Transistors & FETs
-    md.append("## 2. Transistors & FETs (Switching & Saturation)")
-    md.append("| Designator | Part Number | Type | Control Pin | Base/Gate R | Pull-up/down | Status | Notes |")
-    md.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
+    # 2. Transistors & FETs (Switching & Pinout Telemetry)
+    md.append("## 2. Transistors & FETs (Switching & Pinout Telemetry)")
+    md.append("| Designator | Part Number | Package | Type | Base / Gate | Collector / Drain | Emitter / Source | Series R | Bias / Pull R | Status | Notes |")
+    md.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
 
     for r in transistor_results:
         comp = graph.get_component(r.ref_des)
         part_num = comp.value if comp else ""
+        pkg = comp.package if (comp and comp.package) else "-"
         c_type = r.component_type
-        ctrl_pin = r.details.get("base") or r.details.get("gate", "-")
-        series_r = r.details.get("resistor", "None")
-        if series_r != "None" and "value" in r.details:
-            series_r += f" ({r.details['value']})"
-        pull_r = r.details.get("pulldown") or r.details.get("pullup", "None")
-        if pull_r != "None" and "value" in r.details:
-            pull_r += f" ({r.details['value']})"
-        md.append(f"| {r.ref_des} | {part_num} | {c_type} | {ctrl_pin} | {series_r} | {pull_r} | {r.badge} | {r.message} |")
+        if "MOSFET" in c_type:
+            gate, source, drain = get_mosfet_pins(comp, parts_manager) if comp else (None, None, None)
+            g_str = f"Pin {gate.number} (`{gate.net}`)" if gate else "-"
+            d_str = f"Pin {drain.number} (`{drain.net}`)" if drain else "-"
+            s_str = f"Pin {source.number} (`{source.net}`)" if source else "-"
+            series_r = r.details.get("resistor", "None")
+            pull_r = r.details.get("pulldown") or r.details.get("pullup", "None")
+            if pull_r != "None" and "value" in r.details:
+                pull_r += f" ({r.details['value']})"
+        else:
+            base, emitter, collector = get_bjt_pins(comp, parts_manager) if comp else (None, None, None)
+            g_str = f"Pin {base.number} (`{base.net}`)" if base else "-"
+            d_str = f"Pin {collector.number} (`{collector.net}`)" if collector else "-"
+            s_str = f"Pin {emitter.number} (`{emitter.net}`)" if emitter else "-"
+            series_r = r.details.get("resistor", "None")
+            if series_r != "None" and "value" in r.details:
+                series_r += f" ({r.details['value']})"
+            pull_r = "None"
+            if base:
+                net_b = graph.get_net(base.net)
+                if net_b:
+                    for pin in net_b.pins:
+                        if pin.component_ref != r.ref_des:
+                            c = graph.get_component(pin.component_ref)
+                            if c and (c.ref_des.startswith("R") or c.comp_type == "RESISTOR"):
+                                if series_r == "None" or c.ref_des not in series_r:
+                                    pull_r = f"{c.ref_des} ({c.value})"
+                                    break
+        md.append(f"| {r.ref_des} | {part_num} | {pkg} | {c_type} | {g_str} | {d_str} | {s_str} | {series_r} | {pull_r} | {r.badge} | {r.message} |")
     md.append("")
 
     # 3. ICs & Peripherals
