@@ -9,7 +9,10 @@ from src.easyeda.server import (
     save_part_profile,
     get_datasheet,
     list_cached_parts,
-    start_live_receiver
+    start_live_receiver,
+    archive_stale_payload,
+    _CACHE_PAYLOAD_FILE,
+    _STALE_PAYLOAD_FILE,
 )
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "test_schematic.json"
@@ -274,5 +277,38 @@ def test_zero_suppression_includes_d1_u4_u6_and_pin_tables():
     assert "Capacitance to GND" in report
 
 
+def test_transistor_telemetry_table_exposes_physical_pins():
+    if not REAL_TEL_PATH.exists() or not REAL_BOM_PATH.exists():
+        pytest.skip("Real project files not found")
+
+    report = audit_schematic(str(REAL_TEL_PATH), str(REAL_BOM_PATH))
+    # Section 2 Transistor table header asserts
+    assert "Base / Gate" in report
+    assert "Collector / Drain" in report
+    assert "Emitter / Source" in report
+
+    # Verify Q1 (B772) physical pinout telemetry is explicitly visible
+    assert "Q1" in report
+    assert "2SB772" in report or "B772" in report
+    assert "BJT_PNP" in report
+    assert "Pin 1" in report  # Base
+    assert "Pin 2" in report  # Collector
+    assert "Pin 3" in report  # Emitter
 
 
+def test_archive_stale_payload_lifecycle():
+    # Write a dummy payload
+    _CACHE_PAYLOAD_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _CACHE_PAYLOAD_FILE.write_text('{"test": "stale_data"}', encoding="utf-8")
+    assert _CACHE_PAYLOAD_FILE.exists()
+
+    # Call archive_stale_payload
+    archive_stale_payload()
+
+    # Verify original is moved to stale
+    assert not _CACHE_PAYLOAD_FILE.exists()
+    assert _STALE_PAYLOAD_FILE.exists()
+
+    # Clean up test stale file
+    if _STALE_PAYLOAD_FILE.exists():
+        _STALE_PAYLOAD_FILE.unlink()

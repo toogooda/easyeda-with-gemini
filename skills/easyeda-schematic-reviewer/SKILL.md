@@ -13,13 +13,14 @@ This skill teaches the agent how to systematically audit an electronics schemati
 
 The reviewer operates on a **Zero-Suppression Architecture**:
 * **100% Component Visibility:** Every active silicon, power device, protection array, and sensor in the design appears in the report with a structured **Pin Connection & Net Analysis Table**. Non-electrical connectors and mechanical items are filtered out to focus strictly on electronics.
-* **Automated Rules + Autonomous AI Review:** Deterministic checkers run fast-path math (I2C address strapping, reversed diodes, crystal load caps). For all discrete ICs and modules, the reviewing AI reads the net connectivity and datasheet to audit power requirements, decoupling, and pin connections.
+* **Automated Telemetry + Autonomous AI Review:** Deterministic checkers parse net connectivity, component types, and fast-path pinout math. The reviewing AI treats Python output as raw telemetry, applying senior hardware design principles to audit circuit operation, pin orientation, and electrical constraints.
 * **JIT (Just-In-Time) Profile Caching:** No human or developer manually hardcodes JSON profiles. When the AI encounters an unprofiled part, it reads the datasheet, extracts the pinout and electrical constraints, and saves the profile into `parts_cache/<LCSC_ID>.json` using `save_part_profile`. That part is now permanently cached for all future audits!
 
 ---
 
 ## Strict Guardrails for the Reviewing Agent
 
+* 🚫 **NEVER blindly trust Python checker `PASS` badges (Zero-Trust Mandate):** Python checkers perform preliminary heuristics, but may fail to detect inverted pinouts, swapped collector/emitter pins, or logic race conditions. You are an autonomous Senior Hardware Design Engineer: treat Python checker outputs as **raw telemetry only** (pin net connections, component values, part profiles). You MUST personally verify physical pin connections against hardware engineering rules. Never invent justifications or assume a circuit is correct simply because an automated check returned `🟢 PASS`.
 * 🚫 **DO NOT run git commands:** Under NO circumstances should you run `git status`, `git log`, `git checkout`, or `git restore`. You are acting strictly as a senior hardware design engineer auditing a circuit design, not managing software repository state.
 * 🚫 **DO NOT inspect internal repository tracking:** Do NOT inspect `conductor/` tracks, previous commits, or PR notes to deduce component behavior.
 * 🚫 **DO NOT inspect or read Python source files (`src/easyeda/*.py`, `tests/`):** You are acting strictly as an EE hardware review engineer. `audit_schematic` handles all parsing and report generation. Do NOT inspect, read, or reverse-engineer the Python source files.
@@ -99,32 +100,67 @@ Inspect Section 3 ("ICs & Peripherals") in `review_report.md`:
      ```
   5. **Rerun `audit_schematic()`:** After creating the profile file(s), rerun the audit command. The live engine will immediately re-evaluate the schematic graph against the newly saved profiles, automatically populating all pin names, decoupling capacitor checks, and I2C address checks!
 
-### Step 3: Conduct a True Hardware Engineering Critique
-**Never leave boilerplate placeholders like "INFO Pin connections mapped".** Conduct a genuine senior-level engineering critique:
+### Step 3: Conduct a True Hardware Engineering Critique (Zero-Trust Review Checklist)
+**Never leave boilerplate placeholders or accept automated PASS badges without verification.** As a Senior Electrical Engineer, you must actively audit the raw pin-to-net connectivity against the following zero-trust hardware checklist:
 
-1. **Executive Summary Upfront:**
-   * Review the `## Summary of Issues` positioned right at the top of the report. Verify all 🔴 **CRITICAL** failures (e.g. backwards diodes, unballasted LEDs, swapped RX/TX lines, I2C address conflicts) and 🟡 **WARNING** items (e.g. missing reset pull-ups, floating boot pins).
+#### 1. Transistors & Switching FETs (Section 1 & Raw Netlist)
+* **High-Side PNP BJTs (e.g. Q1 / B772):**
+  - **Physical Pin Orientation:** Pin assigned to **Emitter** MUST connect to the positive DC power rail (`3V3`, `5V`, `VIN`, etc.). Pin assigned to **Collector** MUST connect to the switched load net (e.g. `LORAON`).
+  - 🔴 **CRITICAL DEFECT:** If Collector connects to a power rail or Emitter connects to the load, the BJT is **swapped/reversed**. In this inverted state, the base-collector junction acts as a forward diode to the base, breaking high-side gating, causing parasitic back-powering, and preventing cutoff. Flag this immediately as a Critical Design Error!
+  - **Base Drive & Resistors:** Verify a series base resistor ($1\,\text{k}\Omega - 4.7\,\text{k}\Omega$) is present to limit GPIO sink current. Verify a pull-up resistor ($10\,\text{k}\Omega - 100\,\text{k}\Omega$) exists between Base and Emitter (Power rail) to guarantee clean cutoff during MCU reset/boot.
+* **Low-Side NPN BJTs (e.g. Q2 / 2SD965):**
+  - **Physical Pin Orientation:** Pin assigned to **Emitter** MUST connect to ground (`GND`). Pin assigned to **Collector** MUST connect to the low side of the switched load.
+  - 🔴 **CRITICAL DEFECT:** If Emitter connects to a positive rail or Collector connects to GND, flag as a reversed BJT.
+  - **Base Drive & Resistors:** Verify a series base resistor ($220\,\Omega - 2.2\,\text{k}\Omega$) and a pull-down resistor to GND to keep the switch off during MCU boot.
+* **P-Channel MOSFETs (High-Side Switch):**
+  - Source MUST connect to the positive power rail; Drain MUST connect to the load. (Reversing Source and Drain leaves the internal body diode forward-biased, permanently conducting power!).
+  - Gate MUST have a pull-up resistor to the source power rail.
+* **N-Channel MOSFETs (Low-Side Switch):**
+  - Source MUST connect to `GND`; Drain MUST connect to the load.
+  - Gate MUST have a pull-down resistor to `GND`.
 
-2. **Microcontroller & Bus Peripheral Pin Mapping (Section 4):**
-   * Inspect the `#### Bus Peripheral Pin Mapping` table.
-   * The schematic netlist traces what nets are wired to which MCU pins (e.g. Pin 42 to `SCL`, Pin 43 to `SDA`, Pins 14–17 to `LORA` SPI, Pins 30–31 to `PTX`/`PRX`).
-   * **Crucial Rule:** The schematic netlist graph alone cannot verify silicon capabilities. You as the reviewing AI must cross-reference the MCU physical pin numbers against the MCU datasheet Alternate Functions (AF) table (e.g. STM32 LQFP-48 pinout):
-     * Verify that Pin 42 actually has `I2C_SCL` hardware alternate function.
-     * Verify that Pin 15 actually has `SPI_SCK` hardware alternate function.
-     * Verify that Pins 30/31 actually have `USART_TX`/`USART_RX` hardware alternate functions.
-     * Confirm pull-up resistors on I2C lines (`SCL`, `SDA`) and ESD protection on external lines.
-     * If a pin is routed to a function not supported by the MCU silicon alternate function matrix, flag it as a 🔴 **CRITICAL** design error!
+#### 2. Diodes & Protection Devices (Section 2 & Raw Netlist)
+* **Power & Rectifier Diodes (e.g. U5, D2):**
+  - Anode MUST connect to the power input / driving source; Cathode MUST connect to the protected / downstream net.
+  - 🔴 **CRITICAL DEFECT:** A reversed diode in series with power will block all current and completely deaden the circuit.
+* **Indicator LEDs:**
+  - Verify every LED has a dedicated series ballast current-limiting resistor ($100\,\Omega - 2.2\,\text{k}\Omega$).
+  - 🔴 **CRITICAL DEFECT:** Direct connection of an LED between a logic pin/rail and GND without a ballast resistor will cause overcurrent damage to the diode or MCU GPIO!
+* **TVS Protection Arrays (e.g. D1 / SP720):**
+  - Ground/Anode pins MUST connect to solid `GND`.
+  - Clamp/Cathode pins MUST tap the protected signal/bus lines.
+  - Verify clamp voltage exceeds nominal bus operating voltage.
 
-3. **Power Tree & Switching:**
-   * Trace power origins. If an IC is powered from a switched rail (e.g. `LORAON` driven by high-side PNP switch `Q1` from an MCU GPIO), verify base resistor saturation, pull-up/down resistors, and orientation.
+#### 3. I2C Bus & Address Resolution (Section 3 & Raw Netlist)
+* **Physical Address Strapping:**
+  - Inspect the physical net connections on all address pins ($A_0, A_1, A_2, \text{ADD0}$) for every I2C device (e.g. INA226, EEPROM, TMP102).
+  - Verify exact 7-bit slave addresses calculated from the strapping table in the device datasheet.
+* **Address Collisions:**
+  - 🔴 **CRITICAL DEFECT:** If two devices on the same I2C bus share the same 7-bit address, flag an immediate bus conflict.
+* **Bus Pull-Up Resistors:**
+  - Verify dedicated pull-up resistors ($2.2\,\text{k}\Omega - 4.7\,\text{k}\Omega$) are present on both `SCL` and `SDA` nets to the I2C $V_{\text{CC}}$ rail.
 
-4. **Decoupling for Peak Currents:**
-   * Verify decoupling capacitor adequacy. For RF transceivers, motors, or switching regulators, verify whether bulk capacitance (e.g. $10\,\mu\text{F}$) is present in parallel with high-frequency bypass ($100\,\text{nF}$) to prevent brownouts during transmit bursts or load steps.
+#### 4. Microcontroller Clocks, Reset & Boot Strapping (Section 4)
+* **Dual Oscillator Crystals:**
+  - HSE (e.g. 8MHz) crystal pins wired to `OSC_IN` / `OSC_OUT` with matching load capacitors ($10\,\text{pF} - 22\,\text{pF}$) to GND.
+  - LSE (e.g. 32.768kHz) crystal pins wired to `OSC32_IN` / `OSC32_OUT` with load capacitors ($6\,\text{pF} - 12\,\text{pF}$) to GND.
+* **NRST Pin:**
+  - MUST have a $100\,\text{nF}$ filter/decoupling capacitor directly to `GND` to suppress transient resets.
+* **BOOT0 Pin:**
+  - MUST have a pull-down resistor ($10\,\text{k}\Omega$) to `GND` for normal Flash memory execution.
 
-5. **Diodes, Regulators & Protection:**
-   * Catch reversed diodes blocking power rails.
-   * Verify LDO ground returns, input voltage ratings, and input/output stability capacitance.
-   * Verify TVS protection array clamping rails ($V+$ to power, $V-$ to GND).
+#### 5. Silicon Peripheral Alternate Functions (AF)
+* Cross-reference MCU pin assignments against the silicon alternate function table:
+  - Verify MCU pins assigned to `I2C_SCL` / `I2C_SDA` support hardware I2C AF.
+  - Verify MCU pins assigned to `SPI_SCK`, `SPI_MOSI`, `SPI_MISO`, `SPI_NSS` support hardware SPI AF.
+  - Verify MCU pins assigned to `USART_TX` / `USART_RX` support hardware UART AF.
+  - 🔴 **CRITICAL DEFECT:** If a peripheral signal is routed to an MCU pin lacking that alternate function in silicon, flag as an unroutable peripheral!
+
+#### 6. Power Distribution & Decoupling
+* For every IC, LDO, and RF module:
+  - Verify bulk capacitor (e.g. $10\,\mu\text{F}$) on power entry.
+  - Verify high-frequency bypass capacitor ($100\,\text{nF}$) close to each $V_{\text{DD}}$ / $V_{\text{CC}}$ pin with low-impedance ground return to `GND`.
+  - For RF transceivers (e.g. LoRa SX1262 / Ra-01), verify adequate peak current capability ($>120\,\text{mA}$) and transient bypass to avoid transmit reset.
 
 ### Step 4: Deliver the Visual Report Artifact
 Write the complete output into a dedicated user-facing Markdown artifact:
